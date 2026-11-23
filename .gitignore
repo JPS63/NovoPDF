@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Construcción
+build/out/
+build/launcher/*.res
+dist/
+*.zip
+
+# Datos que crea el programa al usarse (configuración, registro, cachés)
+datos/
+src/datos/
+*.log
+
+# Datos del OCR (se descargan de github.com/tesseract-ocr/tessdata)
+src/recursos/tessdata/
+
+# Certificados y documentos de prueba (se generan con tests/mkcert.py, mk_samples.py y mk_forms.py)
+*.pfx
+*.p12
+tests/*.pdf
+
+# Sistema
+.DS_Store
+Thumbs.db
+desktop.ini
