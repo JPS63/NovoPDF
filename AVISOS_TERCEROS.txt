@@ -1,0 +1,103 @@
+NovoPDF 1.6.0 - Avisos de terceros
+==================================
+
+NovoPDF
+  Copyright © 2026 Jesús Punzón Suero.
+  NovoPDF es software libre: puede redistribuirlo y/o modificarlo bajo los
+  términos de la Licencia Pública General Affero de GNU (GNU AGPL), versión 3
+  (archivo LICENSE). Se distribuye SIN NINGUNA GARANTÍA.
+  Código fuente: https://github.com/JPS63/NovoPDF
+
+NovoPDF utiliza los componentes de terceros que se indican abajo. Cada uno
+conserva su propia licencia y sus avisos de copyright. En las versiones
+compiladas (portable de Windows y NovoPDF.app de macOS) los textos de
+licencia originales de cada paquete de Python están en su carpeta
+«*.dist-info» (Windows: runtime\Lib\site-packages; macOS:
+NovoPDF.app/Contents/Resources/lib/python3.12/site-packages) y los de
+Python en runtime\LICENSE.txt. Los textos completos de las licencias GNU y
+Apache están también en la carpeta «licencias» de este paquete.
+
+Versiones: la primera es la de Windows x64; entre corchetes, la de macOS
+cuando es distinta.
+
+
+1. COMPONENTES PRINCIPALES
+--------------------------
+
+PyMuPDF 2.1 [1.28.2] y MuPDF
+  Artifex Software, Inc. - https://github.com/pymupdf/PyMuPDF
+  Licencia: GNU AGPL v3 (o licencia comercial de Artifex). NovoPDF se
+  publica bajo AGPL v3 para cumplir esta licencia.
+  MuPDF incluye a su vez bibliotecas de terceros (FreeType, HarfBuzz,
+  jbig2dec, OpenJPEG, libjpeg, zlib, Gumbo, Tesseract, Leptonica, entre
+  otras), cada una con su licencia; ver https://mupdf.com y el código de
+  MuPDF (https://github.com/ArtifexSoftware/mupdf).
+
+Qt 6 / PySide6-Essentials 6.12.0 [6.9.3] y shiboken6 6.12.0 [6.9.3]
+  The Qt Company Ltd. - https://www.qt.io / https://pyside.org
+  Licencia: GNU LGPL v3 (licencias/LGPL-3.0.txt, que complementa a
+  licencias/GPL-3.0.txt). Código fuente de Qt: https://download.qt.io y
+  https://code.qt.io. Las bibliotecas de Qt se distribuyen como archivos
+  separados (Qt6*.dll en Windows, *.framework en macOS) y no se han
+  modificado: el usuario puede sustituirlas por otra versión compatible.
+
+Tesseract OCR (dentro de MuPDF) y datos de idioma
+  (eng.traineddata, spa.traineddata, osd.traineddata, carpeta recursos/tessdata)
+  Google / colaboradores de Tesseract - https://github.com/tesseract-ocr
+  Licencia: Apache 2.0 (licencias/Apache-2.0.txt).
+  Datos obtenidos sin modificar de https://github.com/tesseract-ocr/tessdata
+
+Python 3.12 (python-build-standalone)
+  Python Software Foundation - https://www.python.org
+  Licencia: PSF License Agreement (runtime\LICENSE.txt). Incluye OpenSSL
+  (Apache 2.0), libffi (MIT), SQLite (dominio público), zlib, bzip2, xz y
+  expat, con los avisos recogidos en ese mismo archivo.
+
+
+2. PAQUETES DE PYTHON
+---------------------
+
+  Paquete                   Versión      Licencia                  Origen
+  ------------------------  -----------  ------------------------  -------------------------------------------
+  pyHanko                   0.38.1       MIT                       https://github.com/MatthiasValvekens/pyHanko
+  pyhanko-certvalidator     0.33.0       MIT                       https://github.com/MatthiasValvekens/pyHanko
+  Pillow                    13.0.0       MIT-CMU (HPND)            https://python-pillow.org
+  lxml                      6.1.3        BSD-3-Clause              https://lxml.de
+  python-docx               1.2.0        MIT                       https://github.com/python-openxml/python-docx
+  openpyxl                  3.1.5        MIT                       https://foss.heptapod.net/openpyxl/openpyxl
+  et_xmlfile                2.0.0        MIT                       https://foss.heptapod.net/openpyxl/et_xmlfile
+  pywin32 (solo Windows)    312          PSF                       https://github.com/mhammond/pywin32
+  typing_extensions         4.16.0       PSF-2.0                   https://github.com/python/typing_extensions
+  cryptography              50.0.2       Apache-2.0 o BSD-3-Clause https://github.com/pyca/cryptography
+  cffi                      2.1.1        MIT-0                     https://github.com/python-cffi/cffi
+  pycparser                 3.12         BSD-3-Clause              https://github.com/eliben/pycparser
+  asn1crypto                1.5.1        MIT                       https://github.com/wbond/asn1crypto
+  oscrypto                  1.3.0        MIT                       https://github.com/wbond/oscrypto
+  certifi                   2026.10.23   MPL-2.0                   https://github.com/certifi/python-certifi
+  aiohttp                   3.14.5       Apache-2.0 y MIT          https://github.com/aio-libs/aiohttp
+  aiohappyeyeballs          2.7.1        PSF-2.0                   https://github.com/aio-libs/aiohappyeyeballs
+  aiosignal                 1.4.0        Apache-2.0                https://github.com/aio-libs/aiosignal
+  frozenlist                1.8.0        Apache-2.0                https://github.com/aio-libs/frozenlist
+  multidict                 7.2.1        Apache-2.0                https://github.com/aio-libs/multidict
+  propcache                 0.5.4        Apache-2.0                https://github.com/aio-libs/propcache
+  yarl                      1.25.1       Apache-2.0                https://github.com/aio-libs/yarl
+  attrs                     26.1.0       MIT                       https://github.com/python-attrs/attrs
+  idna                      3.20         BSD-3-Clause              https://github.com/kjd/idna
+  packaging                 26.3         Apache-2.0 o BSD-2-Clause https://github.com/pypa/packaging
+  PyYAML                    6.0.3        MIT                       https://pyyaml.org
+  tzlocal                   5.4.5        MIT                       https://github.com/regebro/tzlocal
+  tzdata                    2026.6       Apache-2.0                https://github.com/python/tzdata
+  uritools                  6.1.4        MIT                       https://github.com/tkem/uritools
+
+  Los paquetes con licencia MIT, BSD, PSF, HPND, MIT-0, MPL-2.0 y Apache-2.0
+  permiten la redistribución siempre que se conserven sus avisos de
+  copyright y licencia, que se incluyen sin cambios en su carpeta
+  «*.dist-info». certifi (MPL-2.0) se distribuye sin modificar; su código
+  está en la dirección indicada.
+
+
+3. HERRAMIENTAS DE CONSTRUCCIÓN (no se distribuyen con el programa)
+-------------------------------------------------------------------
+  mingw-w64 / GCC (lanzador NovoPDF.exe y ayudante TWAIN), Wine (pruebas).
+  Los ejecutables generados con mingw-w64 solo enlazan con bibliotecas del
+  sistema de Windows.

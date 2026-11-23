@@ -1,0 +1,33 @@
+NovoPDF 1.6.0 - Código fuente y construcción (Windows y macOS)
+==============================================================
+Copyright © 2026 Jesús Punzón Suero. Licencia: GNU AGPL v3 o posterior (LICENSE).
+Código fuente: https://github.com/JPS63/NovoPDF
+  src/novopdf/core   document, editing, fonts, export, ocr, signing, printing (impresión con QPrinter),
+                     textedit (edición de párrafos que conserva fuentes y maquetación), markup (resaltar/subrayar/tachar), office (exportar a Word y Excel), tablas (tablas por la alineación del texto, sin líneas u OCR), scanedit (editar sobre escaneados), twain (escáneres TWAIN mediante bin\novopdf_twain32/64.exe), printing_win (impresión compatible con GDI), fileid (¿es el mismo archivo?),
+                     forms (formularios: leer, rellenar, crear, aplanar, exportar datos), formdetect (detectar campos en impresos sin formulario),
+                     certstore (almacén del sistema) -> winstore (Windows, CryptoAPI/CNG) | keychain (macOS, Security.framework),
+                     scanner (Windows: WIA con pywin32; macOS: Captura de Imagen + carpeta vigilada).
+  src/novopdf/instance.py  Ventana única (tubería con nombre en Windows): los PDF abiertos desde el Explorador van a pestañas.
+  src/novopdf/bin    novopdf_twain32.exe / novopdf_twain64.exe: ayudante TWAIN (código en build/twain, compilar con
+                     build/twain/compilar.sh; prueba con Wine y el escáner falso build/twain/test/fake_ds.c).
+  src/novopdf/ui     Interfaz PySide6 (Qt 6). doctabs.py: pestañas que se pueden sacar a otra ventana. formfill.py: rellenar campos sobre la página. printdialog.py: cuadro «Imprimir» con vista previa.
+                     Necesita QtPrintSupport (Qt6PrintSupport.dll / QtPrintSupport.framework).
+  build/build_portable.sh   Windows x64: Python 3.12 autónomo + wheels win_amd64 + lanzador C (mingw-w64).
+  build/build_macos.py      macOS (arm64 / x86_64): NovoPDF.app con Python 3.12 autónomo, PySide6 6.9 (macOS 12+),
+                            PyMuPDF 1.28.2, pyHanko, Pillow. Comprueba las dependencias Mach-O.
+  build/mac/firmar_y_notarizar.sh   Firma con Developer ID y notarización (ejecutar en un Mac).
+  tests/                    Pruebas automáticas (ui_forms.py y test_forms.py: formularios (rellenar, crear, detectar, aplanar, exportar datos; mk_forms.py crea los PDF de prueba), 1.6.0; ui_tabs2.py: mismo PDF una sola vez y sacar pestañas a otra ventana, 1.5.1; ui_tabs.py: pestañas y ventana única, 1.5.0; ui_twain.py: escáner TWAIN con Wine, 1.5.0; ui_tablas.py: tablas por alineación y OCR, 1.4.2; ui_scanedit.py: edición sobre escaneados, 1.4.1; ui_office.py: Word y Excel, 1.4.0; ui_edit_mark.py: edición y marcas, 1.3.1; ui_print.py: impresión, 1.3.0;
+                            ui_sign_wait.py y test_fileassoc.py: novedades 1.2.2;
+                            tests/wine/ firma con el almacén de Windows y asociación de PDF bajo Wine).
+  build/requisitos.txt      Versiones de las dependencias (python-docx y openpyxl desde 1.4.0).
+  LICENSE                   GNU AGPL v3 (licencia de NovoPDF).
+  AVISOS_TERCEROS.txt       Componentes de terceros, versiones, licencias y origen.
+  licencias/                Textos completos de GPL-3.0, LGPL-3.0 (Qt) y Apache-2.0 (Tesseract).
+
+ARCHIVOS QUE NO VAN EN ESTE PAQUETE
+  src/recursos/tessdata/    Datos del OCR (eng, spa y osd .traineddata, Apache-2.0, unos 50 MB):
+                            descargarlos sin modificar de https://github.com/tesseract-ocr/tessdata
+                            y dejarlos en src/recursos/tessdata antes de construir.
+  Dependencias              Wheels de PyPI con las versiones de build/requisitos.txt y Python 3.12
+                            autónomo de https://github.com/astral-sh/python-build-standalone.
+  Los scripts de construcción copian LICENSE, AVISOS_TERCEROS.txt y licencias/ junto al programa.

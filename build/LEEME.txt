@@ -1,0 +1,228 @@
+NovoPDF 1.6.0 - Aplicación portable para trabajar con documentos PDF
+==================================================================
+
+CÓMO EMPEZAR
+  1. Copia la carpeta «NovoPDF» completa donde quieras (escritorio, unidad de red,
+     memoria USB...). No necesita instalación ni permisos de administrador.
+  2. Haz doble clic en NovoPDF.exe.
+  3. (Opcional) Para que los PDF se abran siempre con NovoPDF: en la pantalla de
+     inicio pulsa «Abrir siempre los PDF con NovoPDF» (también en Ayuda, «?»).
+     Se abre la ventana de Windows: elige NovoPDF y pulsa «Siempre».
+     Hazlo después de dejar la carpeta en su sitio definitivo. Si más adelante la
+     mueves, NovoPDF corrige la asociación la próxima vez que lo abras.
+
+Requisitos: Windows 10 u 11 de 64 bits. Funciona sin conexión a Internet.
+
+QUÉ PUEDE HACER
+  Inicio ............ Abrir, crear (en blanco, desde imágenes, combinando PDF),
+                      guardar, imprimir, exportar, proteger con contraseña
+                      (AES-256) y buscar texto.
+  Exportar .......... A Word (.docx): documento editable con sus fuentes,
+                      negritas, cursivas, viñetas, sangrías, alineación,
+                      tablas, imágenes, resaltados y subrayados; lo que se
+                      repite en todas las páginas pasa al encabezado y pie.
+                      A Excel (.xlsx): las tablas pasan a celdas y los
+                      importes, porcentajes y fechas se convierten en números
+                      y fechas; si no hay tablas con líneas, el texto se
+                      reparte en columnas. Los documentos escaneados se pueden
+                      reconocer (OCR) antes de exportarlos.
+  Imprimir (Ctrl+P) . Impresora, páginas (todas, actual, seleccionadas, un
+                      intervalo, solo pares o impares), copias, papel, doble
+                      cara y color o blanco y negro, con vista previa de cada
+                      hoja. Las páginas grandes se reducen para caber y las
+                      apaisadas se giran solas. «Ajustes…» abre el cuadro de
+                      impresión de Windows (bandeja, calidad, grapado…).
+                      Se imprime lo que se ve, incluidos los cambios sin guardar.
+                      Exportar páginas como imagen: PNG, JPEG, TIFF (también
+                      multipágina), BMP, GIF, WebP y SVG; a 72-600 ppp, en
+                      color, escala de grises o blanco y negro.
+  Escanear .......... Crea un PDF directamente desde el escáner en un solo paso
+                      (cristal, alimentador o doble cara; color, grises o blanco
+                      y negro; 150-600 ppp). Quita las páginas en blanco y
+                      reconoce el texto automáticamente. Usa el sistema de
+                      escaneo de Windows (WIA); si un escáner no aparece, la
+                      ventana ofrece el asistente de escaneo de Windows.
+                      En «Páginas > Escanear páginas» se añaden al documento.
+  Páginas ........... Insertar (en blanco o desde otro PDF/imagen), extraer,
+                      duplicar, eliminar, girar y reordenar (arrastrando las
+                      miniaturas del panel izquierdo).
+  Editar ............ Editar párrafos existentes (solo cambian las palabras que
+                      modificas; el resto de la página no se mueve), añadir
+                      texto, mover / cambiar tamaño / reemplazar / eliminar
+                      imágenes, añadir imágenes y borrar zonas.
+                      Resaltar, subrayar y tachar texto con varios colores
+                      (clic derecho sobre una marca para quitarla).
+  Formulario ........ Rellenar formularios PDF: clic en un campo y escribir;
+                      Tab pasa al siguiente. Casillas, opciones, listas
+                      desplegables y cuadros de lista. Los obligatorios sin
+                      rellenar se marcan en rojo. Vaciar el formulario,
+                      exportar los datos a Excel (también de muchos
+                      formularios rellenados a la vez) y aplanarlo (dejarlo
+                      fijo). Crear formularios: «Detectar campos» los crea
+                      solos en un impreso sin formulario (rayas «____»,
+                      líneas, recuadros, tablas y casillas ☐) con el nombre
+                      de su etiqueta; o se añaden a mano (texto, casilla,
+                      opción, desplegable, lista y firma) y se cambian con
+                      «Editar campos» (mover, tamaño, propiedades, eliminar).
+  Firmar ............ Firma digital PAdES con sello visible o invisible usando:
+                        - certificados instalados en Windows (FNMT, empleado
+                          público, DNIe o tarjetas cuyo driver los registre);
+                        - archivos de certificado .pfx / .p12.
+                      «Ver firmas» comprueba la validez de las firmas.
+                      Mientras se firma aparece «Firmando el documento…». Si
+                      el certificado pide PIN o contraseña, NovoPDF trae esa
+                      ventana al frente; si no se ve, usa «Mostrar la ventana
+                      del PIN» o Alt+Tab.
+  Reconocer texto ... OCR en español e inglés para documentos escaneados: añade
+                      una capa de texto invisible para poder buscar y copiar.
+
+  Todo se puede deshacer con Ctrl+Z. Los cambios no se escriben en el archivo
+  hasta que se pulsa «Guardar».
+
+CONSEJOS
+  - Firma siempre al final: cualquier cambio posterior invalida la firma.
+  - Al editar un párrafo se mantiene la fuente de cada palabra: primero la
+    incrustada en el PDF (si contiene todas las letras necesarias), después
+    la misma fuente instalada en Windows y, si no existe, la más parecida.
+    Si cambias la fuente, el tamaño, la negrita o el color en la ventana de
+    edición, se vuelve a escribir todo el párrafo con ese formato.
+  - Si algo falla al firmar o al imprimir, el archivo «datos\novopdf.log»
+    registra cada paso (sin PIN ni contraseñas): envíalo a informática.
+  - La configuración (documentos recientes, último certificado usado...) se
+    guarda en la subcarpeta «datos». Si la carpeta es de solo lectura, se usa
+    %APPDATA%\NovoPDF.
+
+CONTENIDO DE LA CARPETA
+  NovoPDF.exe ......... lanzador
+  app\ ................ código fuente de la aplicación (Python)
+  runtime\ ............ Python 3.12 y bibliotecas (PySide6/Qt, PyMuPDF, pyHanko, Pillow, pywin32)
+  recursos\tessdata ... datos de idioma del OCR (Tesseract)
+  datos\ .............. configuración y registro de errores (se crea al usar)
+
+NOVEDADES 1.6.0
+  - Formularios. Rellenar: haz clic en un campo y escribe; Tab y Mayús+Tab
+    recorren los campos; las casillas y opciones se marcan con un clic o con
+    la barra espaciadora. Los campos se resaltan en azul (se puede quitar con
+    «Resaltar campos») y los obligatorios sin rellenar, en rojo; al guardar
+    se avisa si falta alguno. Los formularios XFA «híbridos» de Adobe se
+    guardan como formularios normales para que todos los lectores muestren
+    lo rellenado. Los documentos protegidos que permiten rellenar se pueden
+    rellenar sin la contraseña de permisos.
+  - Pestaña «Formulario»: vaciar el formulario, exportar los datos a Excel
+    (de este formulario o de muchos a la vez: una fila por archivo, ideal
+    para recopilar solicitudes) y aplanar (lo escrito pasa a ser fijo).
+  - Crear formularios: «Detectar campos» busca en las páginas las rayas de
+    subrayado («Nombre: ________», «……»), las líneas para escribir, los
+    recuadros y celdas vacías de tablas (con el nombre de su columna), las
+    casillas dibujadas y los ☐, y las líneas de firma, y crea los campos con
+    el nombre de su etiqueta. Funciona también en escaneados (mejor si antes
+    se reconoce el texto, lo que se ofrece). También se pueden añadir a mano:
+    texto, casilla, opción (grupos), desplegable, lista y firma; y con
+    «Editar campos» moverlos, cambiar su tamaño, duplicarlos, eliminarlos o
+    cambiar sus propiedades (nombre, descripción, obligatorio, solo lectura,
+    varias líneas, tamaño de letra, alineación, máximo de caracteres y
+    opciones).
+  - Firmar en un campo de firma del formulario: basta con hacer clic en él.
+
+NOVEDADES 1.5.1
+  - Un mismo PDF ya no se abre dos veces: si ya está abierto (en cualquier
+    pestaña o ventana), se muestra. Se reconoce aunque llegue por otro camino
+    (unidad de red o ruta \\servidor, mayúsculas, accesos directos). Si se abre
+    una copia idéntica guardada en otra carpeta, se pregunta si ir al que ya
+    está abierto. Tampoco se puede «Guardar como» encima de un archivo que está
+    abierto en otra pestaña.
+  - Sacar pestañas a otra ventana, como en Acrobat: arrastra la pestaña fuera
+    de la barra y suéltala donde quieras ver la ventana nueva; suéltala sobre
+    otra ventana de NovoPDF para pasar el documento a ella. Con el botón
+    derecho sobre la pestaña: «Abrir en una ventana nueva», «Mover a otra
+    ventana», «Traer aquí las pestañas de las otras ventanas», «Mostrar en la
+    carpeta», «Cerrar las demás pestañas». El botón central del ratón cierra
+    la pestaña.
+
+NOVEDADES 1.5.0
+  - Pestañas: se pueden tener varios documentos abiertos en la misma ventana.
+    «Abrir» admite varios archivos a la vez; al hacer doble clic en un PDF en
+    el Explorador con NovoPDF ya abierto, se abre en una pestaña nueva de la
+    ventana abierta. Ctrl+Tab cambia de pestaña y Ctrl+W cierra la actual; al
+    salir se pregunta por cada documento con cambios sin guardar.
+  - Escáneres TWAIN: además de los escáneres de Windows (WIA), se pueden usar
+    los que solo tienen controlador TWAIN, también los de 32 bits (p. ej.
+    multifunción Ricoh Aficio con «Network TWAIN»). Aparecen en la lista con
+    «(TWAIN)»; la casilla «Mostrar la ventana del escáner» abre la ventana del
+    controlador del fabricante (algunos solo funcionan con ella).
+  - Impresión: las páginas se envían en franjas, más sencillas para las
+    impresoras. Nueva casilla «Modo compatible» (se recuerda para cada
+    impresora) para las que sacan una hoja con «PCL XL error … xlparse …
+    IllegalAttributeDataType» o no imprimen: imprime directamente con el
+    controlador de Windows, como imagen sencilla a 300 ppp.
+
+NOVEDADES 1.4.2
+  - Exportar a Excel y a Word reconoce las tablas aunque no tengan líneas
+    (o solo tengan algunas) y las de los documentos escaneados con OCR: cada
+    dato va en su columna, las celdas de varios renglones quedan en una sola
+    celda (también las palabras e importes partidos al final del renglón) y
+    los importes, porcentajes y fechas se convierten en números y fechas.
+    El texto corrido, el texto a dos columnas y las listas ya no se reparten
+    en columnas sueltas. Funciona igual en Windows y en macOS.
+  - Word: las tablas sin líneas se exportan sin cuadrícula, con la letra y el
+    tamaño del PDF y los importes alineados a la derecha; la exportación de
+    documentos con tablas grandes es mucho más rápida.
+  - Editar texto en escaneados cuyo texto reconocido está DEBAJO de la imagen
+    (lo hacen muchos escáneres y programas de OCR): antes el cambio aparecía
+    en la ventana de edición pero no en la página; ahora se ve.
+
+NOVEDADES 1.4.1
+  - Editar texto en documentos escaneados (p. ej. de Adobe Scan o con el
+    texto reconocido por NovoPDF): antes solo cambiaba la capa de texto
+    invisible y no se veía ningún cambio. Ahora se tapa la palabra antigua
+    con el color del papel y se escribe la nueva imitando la letra, el tamaño
+    y el color de la imagen (por ejemplo, letra de máquina en las nóminas).
+  - Corregido: «No se pudo exportar: 'NoneType' object has no attribute
+    'tables'» al exportar a Word o Excel algunos PDF.
+  - Exportar escaneados a Word: ya no se repite la imagen de fondo de la
+    página; los importes con espacios del OCR («1.119 , 26») se convierten
+    en números en Excel.
+
+NOVEDADES 1.4.0
+  - Exportar a Word (.docx) y a Excel (.xlsx): botón «Exportar» de Inicio
+    (también sigue ahí la exportación como imágenes).
+
+NOVEDADES 1.3.1
+  - Editar texto conserva el aspecto del documento: solo se cambian las
+    palabras modificadas y cada una mantiene su fuente, tamaño, negrita,
+    cursiva y color. Las viñetas, la justificación, los resaltados y el resto
+    de la página no se mueven. Si el texto nuevo no cabe, se recolocan las
+    palabras dentro del párrafo o se estrecha ligeramente; si aun así no
+    cabe, NovoPDF pregunta antes de reducir la letra (nunca tapa otro
+    contenido). Si algo no se puede cambiar con garantías, no se cambia nada.
+  - Resaltar, subrayar y tachar (pestaña Editar, o clic derecho sobre el texto
+    seleccionado), con elección de color.
+  - Corregido: duplicar la última página daba error.
+
+NOVEDADES 1.3.0
+  - Imprimir: botón «Imprimir» en Inicio, Ctrl+P y clic derecho en las
+    miniaturas («Imprimir páginas…»).
+
+NOVEDADES 1.2.2
+  - La firma se hace en segundo plano: NovoPDF ya no se queda «sin responder»
+    mientras Windows pide el PIN, y la ventana del PIN se trae al frente.
+  - Se puede dejar de esperar si la tarjeta o el lector no responden.
+  - Certificados instalados con proveedores antiguos de Windows que no admiten
+    SHA-256: se reintenta automáticamente con el proveedor «RSA and AES».
+  - Botón «Abrir siempre los PDF con NovoPDF».
+
+LICENCIA
+  NovoPDF - Copyright © 2026 Jesús Punzón Suero.
+  NovoPDF es software libre: puedes redistribuirlo y/o modificarlo bajo los
+  términos de la Licencia Pública General Affero de GNU (GNU AGPL), versión 3
+  o posterior (archivo LICENSE). Se distribuye SIN NINGUNA GARANTÍA.
+  Código fuente: https://github.com/JPS63/NovoPDF
+  (también en Ayuda «?» > «Acerca de NovoPDF»).
+
+LICENCIAS DE TERCEROS
+  PyMuPDF/MuPDF (AGPL-3.0, Artifex), Qt/PySide6 (LGPL-3.0), pyHanko (MIT), Pillow (MIT-CMU), pywin32 (PSF),
+  python-docx (MIT), openpyxl (MIT), lxml (BSD),
+  Tesseract y datos de idioma (Apache-2.0), Python (PSF).
+  La lista completa, con versiones y dónde obtener el código de cada
+  componente, está en AVISOS_TERCEROS.txt; los textos de las licencias GNU y
+  Apache, en la carpeta «licencias».
