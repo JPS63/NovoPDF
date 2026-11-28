@@ -1,4 +1,4 @@
-NovoPDF 1.6.0 - Avisos de terceros
+NovoPDF 1.7.0 - Avisos de terceros
 ==================================
 
 NovoPDF
