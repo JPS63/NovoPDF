@@ -1,4 +1,4 @@
-NovoPDF 1.6.0 para macOS
+NovoPDF 1.7.0 para macOS
 =========================
 
 REQUISITOS
@@ -42,12 +42,24 @@ DIFERENCIAS CON LA VERSIÓN DE WINDOWS
   - Atajos de teclado con ⌘ en lugar de Ctrl (⌘O abrir, ⌘S guardar, ⌘Z deshacer…).
   - La configuración se guarda en ~/Library/Application Support/NovoPDF.
 
+  - Impresora NovoPDF: en Ayuda («?») > «Impresora NovoPDF» > «Activar». Después, en el cuadro
+    de impresión de cualquier programa, menú «PDF» (abajo a la izquierda) > «Abrir en NovoPDF».
+  - «Despertar la impresora» al imprimir es solo para Windows (en el Mac lo hace el sistema).
+
+NOVEDADES 1.7.0
+  - Comentarios (pestaña «Comentar»): notas, cuadros de texto y «Resaltar y comentar», con
+    respuestas y «Resuelto»; se ven en cualquier lector de PDF. Lista y exportación a Excel.
+  - Escaneados > «Optimizar»: endereza, gira las páginas de lado o al revés, papel blanco,
+    texto nítido y menos tamaño; después reconoce el texto.
+  - Formularios (de la 1.6.0): rellenar, crear, detectar campos, aplanar y exportar datos.
+
 FUNCIONES
   Igual que en Windows: abrir, exportar a Word y a Excel, imprimir (⌘P; «Ajustes…» abre el cuadro de impresión de
   macOS) y proteger con contraseña, gestionar páginas, editar texto (solo cambian las palabras modificadas;
   el resto de la página no se mueve), resaltar, subrayar y tachar
   (con la misma fuente del documento) e imágenes, exportar a imagen, firma digital PAdES
-  con sello visible, OCR en español e inglés y escaneo.
+  con sello visible, OCR en español e inglés, escaneo, formularios, comentarios y optimizar
+  escaneados.
 
 LICENCIA
   NovoPDF - Copyright © 2026 Jesús Punzón Suero. Software libre bajo la GNU AGPL v3 o

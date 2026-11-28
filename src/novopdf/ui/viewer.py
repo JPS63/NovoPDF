@@ -23,6 +23,7 @@ from PySide6.QtGui import (QColor, QCursor, QGuiApplication, QImage, QKeySequenc
                            QPen, QPixmap, QShortcut)
 from PySide6.QtWidgets import QMenu, QScrollArea, QSizePolicy, QVBoxLayout, QWidget
 
+from ..core import comments as cm
 from ..core import editing, forms
 from . import theme
 
@@ -50,6 +51,10 @@ FORM_CREATE = {T_F_TEXT: forms.TEXT, T_F_CHECK: forms.CHECK, T_F_RADIO: forms.RA
                T_F_COMBO: forms.COMBO, T_F_LIST: forms.LIST, T_F_SIGN: forms.SIGNATURE}
 FORM_TOOLS = (T_FORM_EDIT,) + tuple(FORM_CREATE)
 RECT_TOOLS = (T_ADD_IMAGE, T_ERASE, T_SIGN) + tuple(FORM_CREATE)
+# Comentarios: nota, cuadro de texto y resaltar con comentario
+T_C_NOTE, T_C_TEXT, T_C_HIGHLIGHT = "c_note", "c_text", "c_highlight"
+COMMENT_TOOLS = (T_C_NOTE, T_C_TEXT, T_C_HIGHLIGHT)
+RECT_TOOLS = RECT_TOOLS + (T_C_TEXT,)
 FIELD_FILL = QColor(221, 228, 255)           # campos para rellenar (como «Resaltar campos» de Acrobat),
                                              # en modo «multiplicar»: el texto sigue negro
 
@@ -159,6 +164,8 @@ class Viewer(QScrollArea):
         self.search_hits: dict[int, list] = {}
         self.current_hit = None
         self._fields: dict[int, list] = {}
+        self._comments: dict[int, list] = {}
+        self.sel_comment = None        # (página, rect) del comentario elegido en el panel
         self.show_fields = True        # resaltar los campos del formulario
         self.form_fill = True          # se pueden rellenar (permisos)
         self.sel_field = None          # (página, Field, Rect actual) al editar campos
@@ -206,9 +213,10 @@ class Viewer(QScrollArea):
             self._images.clear()
             self._words.clear()
             self._fields.clear()
+            self._comments.clear()
         else:
             for i in pages:
-                for c in (self._cache, self._blocks, self._images, self._words, self._fields):
+                for c in (self._cache, self._blocks, self._images, self._words, self._fields, self._comments):
                     c.pop(i, None)
 
     def refresh(self, pages=None, structure=False):
@@ -366,6 +374,7 @@ class Viewer(QScrollArea):
                    T_FORM_EDIT: Qt.ArrowCursor}
         for t in FORM_CREATE:
             cursors[t] = Qt.CrossCursor
+        cursors.update({T_C_NOTE: Qt.CrossCursor, T_C_TEXT: Qt.CrossCursor, T_C_HIGHLIGHT: Qt.IBeamCursor})
         for w in self.pages:
             w.setCursor(cursors.get(tool, Qt.ArrowCursor))
 
@@ -570,11 +579,48 @@ class Viewer(QScrollArea):
             return
         self.editor.open(f)
 
+    # ------------------------------------------------------------------ comentarios
+    def comments(self, i) -> list:
+        if not self.pdf or i >= self.pdf.page_count:
+            return []
+        if i not in self._comments:
+            try:
+                self._comments[i] = cm.page_comments(self.pdf.doc, i)
+            except Exception:
+                self._comments[i] = []
+        return self._comments[i]
+
+    def comment_at(self, i, pt, markups=False):
+        """Nota o cuadro de texto bajo el punto (con markups, también resaltados con comentario)."""
+        for c in reversed(self.comments(i)):
+            if c.kind in (cm.NOTE, cm.FREETEXT, cm.OTHER) and (c.rect + (-2, -2, 2, 2)).contains(pt):
+                return c
+        if markups:
+            m = self.mark_at(i, pt)
+            if m:
+                for c in self.comments(i):
+                    if c.xref == m[0]:
+                        return c
+        return None
+
+    def show_comment(self, i, rect):
+        """Marca en la página el comentario elegido en el panel."""
+        old = self.sel_comment
+        self.sel_comment = (i, pymupdf.Rect(rect)) if rect is not None else None
+        for k in {x[0] for x in (old, self.sel_comment) if x}:
+            self.update_page(k)
+
     def tooltip_at(self, w, pos):
         if not self.pdf:
             return ""
         f = self._field_at(w.index, w.to_pdf(pos))
         if f is None:
+            c = self.comment_at(w.index, w.to_pdf(pos), markups=True)
+            if c is not None and (c.text or c.replies):
+                txt = c.text if len(c.text) < 300 else c.text[:297] + "…"
+                extra = f"\n({len(c.replies)} respuesta{'s' if len(c.replies) != 1 else ''})" if c.replies else ""
+                state = " · resuelto" if c.resolved else ""
+                return f"{c.author or c.kind_name}{state}:\n{txt}{extra}"
             return ""
         if self.tool in FORM_TOOLS:
             extra = f" · grupo «{f.name}», valor «{f.on_state}»" if f.kind == forms.RADIO else ""
@@ -603,9 +649,14 @@ class Viewer(QScrollArea):
         pt = w.to_pdf(e.position())
         i = w.index
         t = self.tool
+        if t in (T_C_NOTE, T_C_TEXT):
+            c = self.comment_at(i, pt)
+            w.setCursor(Qt.SizeAllCursor if c is not None and c.kind in (cm.NOTE, cm.FREETEXT) else Qt.CrossCursor)
         if t == T_SELECT:
             f = self._field_at(i, pt)
-            if f is not None:
+            if f is None and self.comment_at(i, pt) is not None:
+                w.setCursor(Qt.PointingHandCursor)
+            elif f is not None:
                 self.text_sel = None
                 if f.kind in (forms.CHECK, forms.RADIO) and f.fillable and self.form_fill:
                     self.editor.close(commit=True)
@@ -620,6 +671,19 @@ class Viewer(QScrollArea):
                 w.update()
                 return
             self.editor.close(commit=True)
+            c = self.comment_at(i, pt)
+            if c is not None:
+                self.text_sel = None
+                self.action.emit("comment_open", i, c.xref)
+                return
+        if t in (T_C_NOTE, T_C_TEXT):
+            c = self.comment_at(i, pt)
+            if c is not None and c.kind in (cm.NOTE, cm.FREETEXT):
+                self.drag = ("cmove", i, pt, pymupdf.Rect(c.rect), c.xref, pymupdf.Rect(c.rect))
+                return
+            if t == T_C_NOTE:
+                self.action.emit("comment_note", i, pt)
+                return
         if t == T_FORM_EDIT:
             if self.sel_field and self.sel_field[0] == i:
                 r = self.sel_field[2]
@@ -640,7 +704,7 @@ class Viewer(QScrollArea):
             for pw in self.pages:
                 pw.update()
             return
-        if t == T_SELECT or t in MARK_TOOLS:
+        if t == T_SELECT or t in MARK_TOOLS or t == T_C_HIGHLIGHT:
             k = self._word_index(i, pt)
             self.text_sel = (i, k, k) if k is not None else None
             self.drag = ("text", i)
@@ -721,6 +785,9 @@ class Viewer(QScrollArea):
                 self.sel_image = (i, self.sel_image[1], pymupdf.Rect(r0.x0, r0.y0, r0.x0 + nw, r0.y0 + nh))
             elif d[0] == "rect" and d[1] == i:
                 self.drag = ("rect", i, d[2], pymupdf.Rect(d[2], pt).normalize())
+            elif d[0] == "cmove" and d[1] == i:
+                dx, dy = pt.x - d[2].x, pt.y - d[2].y
+                self.drag = d[:5] + (d[3] + (dx, dy, dx, dy),)
             elif d[0] == "fmove" and d[1] == i and self.sel_field:
                 dx, dy = pt.x - d[2].x, pt.y - d[2].y
                 r = forms.clamp(d[3] + (dx, dy, dx, dy), pr)
@@ -785,6 +852,21 @@ class Viewer(QScrollArea):
         self.drag = None
         if not d or e.button() != Qt.LeftButton:
             return
+        if d[0] == "cmove":
+            i, xref, r0, r = d[1], d[4], d[3], d[5]
+            if abs(r.x0 - r0.x0) > 1 or abs(r.y0 - r0.y0) > 1:
+                self.action.emit("comment_move", i, (xref, pymupdf.Rect(r)))
+            else:
+                self.action.emit("comment_open", i, xref)
+            w.update()
+            return
+        if d[0] == "text" and self.tool == T_C_HIGHLIGHT:
+            i, words = self.selected_words()
+            if words:
+                self.action.emit("comment_mark", i, words)
+            self.text_sel = None
+            w.update()
+            return
         if d[0] == "text" and self.tool in MARK_TOOLS:
             i, words = self.selected_words()
             if words:
@@ -808,6 +890,12 @@ class Viewer(QScrollArea):
             if self.tool in FORM_CREATE:
                 small = r.width < 6 or r.height < 6
                 self.action.emit("form_add", i, (FORM_CREATE[self.tool], d[2] if small else r, small))
+                w.update()
+                return
+            if self.tool == T_C_TEXT:
+                if r.width < 20 or r.height < 12:
+                    r = pymupdf.Rect(d[2].x, d[2].y, d[2].x + 180, d[2].y + 40)
+                self.action.emit("comment_text", i, r)
                 w.update()
                 return
             kind = {T_ADD_IMAGE: "add_image", T_ERASE: "erase", T_SIGN: "sign"}[self.tool]
@@ -834,6 +922,11 @@ class Viewer(QScrollArea):
         if self.tool == T_SELECT and self._field_at(w.index, w.to_pdf(e.position())) is not None:
             return
         if self.tool == T_SELECT:
+            c = self.comment_at(w.index, w.to_pdf(e.position()), markups=True)
+            if c is not None and c.kind in cm.MARKUPS:
+                self.action.emit("comment_open", w.index, c.xref)
+                return
+        if self.tool == T_SELECT:
             pt = w.to_pdf(e.position())
             k = self._word_index(w.index, pt, nearest=False)
             if k is not None:
@@ -850,6 +943,16 @@ class Viewer(QScrollArea):
     def on_context(self, w: PageWidget, e):
         m = QMenu(self)
         i = w.index
+        if self.pdf and self.tool not in FORM_TOOLS:
+            c = self.comment_at(i, w.to_pdf(e.pos()), markups=True)
+            if c is not None and (c.kind not in cm.MARKUPS or c.text or c.replies):
+                m.addSection(f"{c.kind_name} de {c.author}" if c.author else c.kind_name)
+                m.addAction(self._swatch_icon(None, "comment"), "Ver el comentario", lambda: self.action.emit("comment_open", i, c.xref))
+                m.addAction("Responder…", lambda: self.action.emit("comment_reply", i, c.xref))
+                if c.kind == cm.FREETEXT:
+                    m.addAction("Cambiar el texto…", lambda: self.action.emit("comment_edit_text", i, c.xref))
+                m.addAction(self._swatch_icon(None, "trash"), "Eliminar el comentario", lambda: self.action.emit("comment_delete", i, c.xref))
+                m.addSeparator()
         if self.tool in FORM_TOOLS and self.pdf:
             f = self._field_at(i, w.to_pdf(e.pos()), 2)
             if f is not None:
@@ -920,7 +1023,10 @@ class Viewer(QScrollArea):
         if self.text_sel and self.text_sel[0] == i and self.text_sel[1] is not None:
             a, b = sorted(self.text_sel[1:])
             col = QColor(47, 91, 216, 70)
-            if self.tool in MARK_TOOLS and self.mark_colors.get(self.tool):
+            if self.tool == T_C_HIGHLIGHT and self.mark_colors.get(T_HIGHLIGHT):
+                col = QColor.fromRgbF(*self.mark_colors[T_HIGHLIGHT])
+                col.setAlpha(110)
+            elif self.tool in MARK_TOOLS and self.mark_colors.get(self.tool):
                 col = QColor.fromRgbF(*self.mark_colors[self.tool])
                 col.setAlpha(110)
             for wd in self.words(i)[a:b + 1]:
@@ -949,6 +1055,19 @@ class Viewer(QScrollArea):
             hr = QRectF(r.right() - HANDLE, r.bottom() - HANDLE, HANDLE * 2, HANDLE * 2)
             p.setBrush(Qt.white)
             p.drawRect(hr)
+        # comentario elegido en el panel y comentario que se está moviendo
+        if self.sel_comment and self.sel_comment[0] == i:
+            r = w.to_px(self.sel_comment[1]).adjusted(-4, -4, 4, 4)
+            p.setPen(QPen(ACCENT, 2))
+            p.setBrush(Qt.NoBrush)
+            p.drawRoundedRect(r, 4, 4)
+        if self.drag and self.drag[0] == "cmove" and self.drag[1] == i:
+            r = w.to_px(self.drag[5])
+            p.setPen(QPen(ACCENT, 1.5, Qt.DashLine))
+            fill = QColor(ACCENT)
+            fill.setAlpha(30)
+            p.setBrush(fill)
+            p.drawRect(r)
         # campo seleccionado (editar campos)
         if self.sel_field and self.sel_field[0] == i:
             r = w.to_px(self.sel_field[2])

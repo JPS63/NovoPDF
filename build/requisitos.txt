@@ -1,4 +1,4 @@
-# Dependencias de NovoPDF 1.6.0 (Python 3.12)
+# Dependencias de NovoPDF 1.7.0 (Python 3.12)
 # Windows x64                         macOS (12+, arm64 / x86_64)
 PySide6-Essentials==6.12.0          # macOS: 6.9.3 (universal2). Se conservan QtCore, QtGui, QtWidgets, QtSvg, QtPrintSupport
 PyMuPDF==2.1                        # macOS: 1.28.2

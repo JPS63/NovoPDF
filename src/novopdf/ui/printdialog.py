@@ -221,6 +221,15 @@ class PrintDialog(Dialog):
                                "«Ajustes…»). Se recuerda para cada impresora.")
         self.compat.setVisible(COMPAT_AVAILABLE and printing_win.available())
         f.addRow("", self.compat)
+        # Despertar impresoras de red (Wi-Fi) que se quedan dormidas
+        import sys as _sys
+        self.wake = QCheckBox("Despertar la impresora si está en reposo y vigilar el trabajo")
+        self.wake.setToolTip("Para impresoras Wi-Fi o de red que se duermen y no imprimen hasta apagarlas y "
+                             "encenderlas: NovoPDF comprueba que contestan, las despierta, quita «sin conexión» "
+                             "y reintenta el trabajo si se queda atascado.")
+        self.wake.setChecked(self.settings.value("print/wake", True, type=bool))
+        self.wake.setVisible(_sys.platform.startswith("win"))
+        f.addRow("", self.wake)
         left.addLayout(f)
         self.summary = QLabel()
         self.summary.setObjectName("Muted")
@@ -594,6 +603,7 @@ class PrintDialog(Dialog):
         name = self.printer_combo.currentData() or ""
         compat = not self.compat.isHidden() and self.compat.isChecked()
         s.setValue(self._compat_key(name), compat)
+        s.setValue("print/wake", self.wake.isChecked())
         dmode = self.duplex.currentData()
         duplex = "none" if dmode == _enum_int(QPrinter.DuplexNone) else \
             "short" if dmode == _enum_int(QPrinter.DuplexShortSide) else "long"
@@ -602,5 +612,6 @@ class PrintDialog(Dialog):
         self.result = dict(pages=pages, fit=self.fit.currentData(), auto_rotate=self.rotate.isChecked(),
                            gray=self.color.currentData() == "gray", copies=self.copies.value(),
                            collate=self.collate.isChecked(), compat=compat, printer=name,
-                           duplex=duplex, paper_id=paper_id)
+                           duplex=duplex, paper_id=paper_id,
+                           wake=not self.wake.isHidden() and self.wake.isChecked())
         return True

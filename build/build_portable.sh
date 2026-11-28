@@ -73,7 +73,7 @@ cp -r "$SRC/recursos/tessdata" "$OUT/recursos/"
 echo "== lanzador"
 x86_64-w64-mingw32-windres "$HERE/launcher/launcher.rc" -O coff -o "$HERE/launcher/launcher.res"
 x86_64-w64-mingw32-gcc -O2 -s -municode -mwindows -o "$OUT/NovoPDF.exe" \
-    "$HERE/launcher/launcher.c" "$HERE/launcher/launcher.res"
+    "$HERE/launcher/launcher.c" "$HERE/launcher/launcher.res" -lwinspool -ladvapi32 -lshell32
 
 echo "== documentación"
 cp "$HERE/LEEME.txt" "$OUT/LEEME.txt"

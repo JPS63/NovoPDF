@@ -15,7 +15,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """NovoPDF: aplicación sencilla para trabajar con documentos PDF."""
-__version__ = "1.6.0"
+__version__ = "1.7.0"
 
 COPYRIGHT = "Copyright © 2026 Jesús Punzón Suero"
 LICENCIA = "GNU AGPL v3 o posterior"

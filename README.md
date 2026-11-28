@@ -3,7 +3,7 @@
 Una aplicación sencilla y atractiva para trabajar con documentos PDF, para Windows y macOS.
 Funciona sin conexión a Internet y no necesita instalación (versión portable para Windows).
 
-**Versión actual: 1.6.0** · [Descargas](https://github.com/JPS63/NovoPDF/releases) ·
+**Versión actual: 1.7.0** · [Descargas](https://github.com/JPS63/NovoPDF/releases) ·
 Licencia [GNU AGPL v3 o posterior](LICENSE)
 
 ## Qué hace

@@ -91,6 +91,14 @@ _P = {
     "flatten": '<path d="M12 3l9 5-9 5-9-5z"/><path d="M3 16l9 5 9-5"/><path d="M8 13.5L12 16l4-2.5" stroke-dasharray="2 2"/>',
     "form_reset": '<rect x="2.5" y="8" width="13" height="8" rx="1.5"/><path d="M14 4.5a7.5 7.5 0 0 1 7 9"/><path d="M21.5 10.5l-.5 3-2.8-1.4"/>',
     "fields_on": '<rect x="3" y="5" width="18" height="5" rx="1" fill="currentColor" fill-opacity=".25"/><rect x="3" y="14" width="18" height="5" rx="1" fill="currentColor" fill-opacity=".25"/>',
+    "comment": '<path d="M4 5h16a1.5 1.5 0 0 1 1.5 1.5v9A1.5 1.5 0 0 1 20 17h-9l-4.5 3.5V17H4a1.5 1.5 0 0 1-1.5-1.5v-9A1.5 1.5 0 0 1 4 5z"/><path d="M7 9.5h10M7 13h6"/>',
+    "note": '<path d="M5 3h14a1 1 0 0 1 1 1v11l-5 5H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M15 20v-4a1 1 0 0 1 1-1h4"/><path d="M8 8h8M8 11.5h5"/>',
+    "textbox": '<rect x="3" y="4" width="18" height="16" rx="1.5" stroke-dasharray="3 2"/><path d="M8 9V8h8v1M12 8v8M10.5 16h3"/>',
+    "hl_comment": '<path d="M13.5 4.5l3.5 3.5-7 7H6.5v-3.5z"/><path d="M6.5 15l-2.5 2.5h5"/><path d="M15 13h5.5a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1h-2l-2 2v-2H15a1 1 0 0 1-1-1v-4a1 1 0 0 1 1-1z"/>',
+    "user": '<circle cx="12" cy="8" r="4"/><path d="M4.5 20.5c1-4 4-6 7.5-6s6.5 2 7.5 6"/>',
+    "optimize": '<path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M8 15.5l2.5-7 2.5 7M9 13.2h3"/><path d="M16.5 7.5v3M15 9h3"/><path d="M15.5 14.5l.6 1.4 1.4.6-1.4.6-.6 1.4-.6-1.4-1.4-.6 1.4-.6z"/>',
+    "printer_v": '<path d="M7 9V3h10v6"/><path d="M7 18H5a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="7" y="14" width="10" height="7" rx="1"/><path d="M10 17.5h4"/>',
+    "browser": '<rect x="2.5" y="4" width="19" height="16" rx="2"/><path d="M2.5 8.5h19"/><circle cx="5.5" cy="6.3" r=".5"/><circle cx="7.5" cy="6.3" r=".5"/><path d="M9 12h6M9 15.5h4"/>',
     "replace": '<rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/><path d="M15 4h3a2 2 0 0 1 2 2v3M17 7l3 2 2-3"/><path d="M9 20H6a2 2 0 0 1-2-2v-3M7 17l-3-2-2 3"/>',
 }
 

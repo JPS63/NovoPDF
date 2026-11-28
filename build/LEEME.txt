@@ -1,4 +1,4 @@
-NovoPDF 1.6.0 - Aplicación portable para trabajar con documentos PDF
+NovoPDF 1.7.0 - Aplicación portable para trabajar con documentos PDF
 ==================================================================
 
 CÓMO EMPEZAR
@@ -52,6 +52,14 @@ QUÉ PUEDE HACER
                       imágenes, añadir imágenes y borrar zonas.
                       Resaltar, subrayar y tachar texto con varios colores
                       (clic derecho sobre una marca para quitarla).
+  Comentar .......... Notas adhesivas, cuadros de texto y «Resaltar y comentar»,
+                      con respuestas y «Resuelto». Son comentarios estándar de
+                      PDF: los ve cualquiera que abra el archivo (Acrobat,
+                      Edge, Chrome, Vista Previa…). Panel «Ver comentarios»
+                      y exportación de la lista a Excel.
+  Escaneados ........ «Optimizar»: endereza, gira las páginas de lado o al
+                      revés, papel blanco y texto nítido, y reduce el tamaño.
+                      «Reconocer texto» (OCR) en español e inglés.
   Formulario ........ Rellenar formularios PDF: clic en un campo y escribir;
                       Tab pasa al siguiente. Casillas, opciones, listas
                       desplegables y cuadros de lista. Los obligatorios sin
@@ -98,6 +106,33 @@ CONTENIDO DE LA CARPETA
   runtime\ ............ Python 3.12 y bibliotecas (PySide6/Qt, PyMuPDF, pyHanko, Pillow, pywin32)
   recursos\tessdata ... datos de idioma del OCR (Tesseract)
   datos\ .............. configuración y registro de errores (se crea al usar)
+
+NOVEDADES 1.7.0
+  - Comentarios (pestaña «Comentar»): notas adhesivas, cuadros de texto sobre
+    la página y «Resaltar y comentar». Cada comentario lleva tu nombre (se
+    pregunta la primera vez; «Tu nombre» lo cambia) y la fecha; se puede
+    responder, marcar como resuelto, editar, mover y eliminar. Se guardan como
+    comentarios estándar de PDF (como los de Acrobat): los verá cualquiera que
+    abra el archivo con su programa habitual. «Ver comentarios» abre la lista
+    a la derecha y «Exportar comentarios» la guarda en Excel.
+  - Optimizar escaneados (pestaña «Escaneados»): endereza las páginas torcidas
+    (con precisión de centésimas de grado), gira las que están de lado o al
+    revés, iguala la iluminación (sombras del lomo, papel amarillento) dejando
+    el papel blanco y el texto negro, da nitidez y reduce el tamaño (color,
+    grises o blanco y negro; 150-300 ppp), con vista previa de antes y
+    después. Después reconoce el texto (OCR) para que se pueda buscar.
+  - Impresoras Wi-Fi que se duermen (Epson y otras): antes de imprimir,
+    NovoPDF comprueba que la impresora contesta y, si no, la despierta (hasta
+    45 s), quita «Usar impresora sin conexión», reanuda la cola en pausa y
+    vuelve a mandar los trabajos atascados. Después vigila el trabajo y lo
+    reintenta si se queda con error. Se puede desactivar en «Imprimir».
+  - Impresora virtual «NovoPDF» (Ayuda › Impresora NovoPDF): imprimir desde
+    Word, el navegador o cualquier programa abre el documento en NovoPDF.
+    Instalarla pide permiso de administrador una vez. En el Mac aparece como
+    «Abrir en NovoPDF» en el menú PDF del cuadro de impresión.
+  - Ayuda › «Abrir con NovoPDF los PDF de los navegadores»: cómo hacer que
+    Edge, Chrome y Firefox abran los PDF con NovoPDF.
+  - Las pestañas «Comentar» y «Escaneados» (antes «Reconocer texto»).
 
 NOVEDADES 1.6.0
   - Formularios. Rellenar: haz clic en un campo y escribe; Tab y Mayús+Tab

@@ -37,6 +37,7 @@ from ..core.document import PasswordRequired, PdfDocument
 from ..paths import data_dir
 from . import dialogs, icons, theme
 from .thumbs import ThumbList
+from .viewer import (COMMENT_TOOLS, T_C_HIGHLIGHT, T_C_NOTE, T_C_TEXT)
 from .viewer import (FORM_CREATE, FORM_TOOLS, MARK_TOOLS, T_ADD_IMAGE, T_ADD_TEXT, T_EDIT_TEXT, T_ERASE,
                      T_F_CHECK, T_F_COMBO, T_F_LIST, T_F_RADIO, T_F_SIGN, T_F_TEXT, T_FORM_EDIT,
                      T_HIGHLIGHT, T_IMAGES, T_SELECT, T_SIGN, T_STRIKE, T_UNDERLINE, T_UNMARK, Viewer)
@@ -70,11 +71,14 @@ HINTS = {
     T_F_LIST: ("info", "f_list", "Dibuja el recuadro del cuadro de lista; después escribirás sus opciones."),
     T_F_SIGN: ("success", "f_sign", "Dibuja el recuadro donde se firmará. Quien rellene el formulario podrá firmar "
                "haciendo clic en él."),
+    T_C_NOTE: ("info", "note", "Haz clic donde quieras dejar una nota. Arrastra una nota o un cuadro de texto para moverlo."),
+    T_C_TEXT: ("info", "textbox", "Dibuja el recuadro del texto (o haz clic). Se verá sobre la página en cualquier lector."),
+    T_C_HIGHLIGHT: ("info", "hl_comment", "Arrastra sobre el texto que quieras comentar: se resalta y escribes el comentario."),
 }
+TAB_COMMENT, TAB_FORM, TAB_SIGN, TAB_OCR = 3, 4, 5, 6
 # herramientas de cada pestaña de la cinta (al cambiar de pestaña se vuelve a «Seleccionar»)
 TAB_TOOLS = {2: (T_EDIT_TEXT, T_ADD_TEXT, T_IMAGES, T_ADD_IMAGE, T_ERASE, T_HIGHLIGHT, T_UNDERLINE, T_STRIKE, T_UNMARK),
-             3: FORM_TOOLS, 4: (T_SIGN,)}
-TAB_FORM, TAB_SIGN, TAB_OCR = 3, 4, 5
+             TAB_COMMENT: COMMENT_TOOLS, TAB_FORM: FORM_TOOLS, TAB_SIGN: (T_SIGN,)}
 
 
 class OcrWorker(QThread):
@@ -101,6 +105,35 @@ class OcrWorker(QThread):
             else:
                 self.done.emit(out, words)
         except Exception as e:  # noqa
+            self.failed.emit(str(e))
+
+
+class OptimizeWorker(QThread):
+    """Optimiza las páginas escaneadas en segundo plano (con su propia copia del documento)."""
+    progress = Signal(int, int)
+    done = Signal(bytes, object)
+    failed = Signal(str)
+
+    def __init__(self, data, pages, opts):
+        super().__init__()
+        self.args = (data, pages, opts)
+        self._cancel = False
+
+    def cancel(self):
+        self._cancel = True
+
+    def run(self):
+        from ..core import optimize
+        data, pages, opts = self.args
+        try:
+            out, rep = optimize.optimize_document_bytes(data, pages, opts, progress=lambda k, n: self.progress.emit(k, n),
+                                                        cancelled=lambda: self._cancel, tessdata=ocr.tessdata_dir())
+            if self._cancel:
+                self.failed.emit("")
+            else:
+                self.done.emit(out, rep)
+        except Exception as e:  # noqa
+            logging.getLogger("novopdf.optimizar").exception("Optimización fallida")
             self.failed.emit(str(e))
 
 
@@ -330,6 +363,14 @@ class MainWindow(QMainWindow):
             fileassoc.refresh_if_moved()
         except Exception:
             pass
+        if len(MainWindow.windows) == 1:
+            def _vp():
+                try:
+                    from ..core import vprinter
+                    vprinter.ensure_listener()
+                except Exception:
+                    pass
+            threading.Thread(target=_vp, daemon=True, name="NovoPDF-impresora").start()
         self._update_state()
         self._refresh_default_offer()
         geo = self.settings.value("window/geometry")
@@ -367,7 +408,8 @@ class MainWindow(QMainWindow):
         self.tab_group.setExclusive(True)
         self.tabs = []
         for k, (label, ic) in enumerate([("Inicio", "home"), ("Páginas", "pages"), ("Editar", "text_edit"),
-                                          ("Formulario", "form"), ("Firmar", "sign"), ("Reconocer texto", "scan")]):
+                                          ("Comentar", "comment"), ("Formulario", "form"), ("Firmar", "sign"),
+                                          ("Escaneados", "scan")]):
             b = QPushButton(icons.icon(ic, color=theme.MUTED, active=theme.ACCENT), " " + label)
             b.setObjectName("TabButton")
             b.setCheckable(True)
@@ -475,6 +517,19 @@ class MainWindow(QMainWindow):
         self.viewer.show_fields = self.settings.value("form/highlight", True, type=bool)
         self._form_state = ("none", 0, [])     # (tipo, nº de campos, obligatorios sin rellenar)
         wl.addWidget(self.viewer, 1)
+        from .commentspanel import CommentsPanel
+        self.cpanel = CommentsPanel()
+        self.cpanel.setVisible(False)
+        self.cpanel.replyRequested.connect(lambda i, x, t: self._comment_action("comment_reply_text", i, (x, t)))
+        self.cpanel.editRequested.connect(lambda i, x, t: self._comment_action("comment_set_text", i, (x, t)))
+        self.cpanel.editFreeTextRequested.connect(lambda i, x: self._comment_action("comment_edit_text", i, x))
+        self.cpanel.resolveRequested.connect(lambda i, x, on: self._comment_action("comment_resolve", i, (x, on)))
+        self.cpanel.deleteRequested.connect(lambda i, x: self._comment_action("comment_delete", i, x))
+        self.cpanel.gotoRequested.connect(self._goto_comment)
+        self.cpanel.exportRequested.connect(self.export_comments)
+        self.cpanel.closeRequested.connect(lambda: self.toggle_comments(False))
+        wl.addWidget(self.cpanel)
+        self._comment_count = 0
         self.stack.addWidget(work)
 
         # --- barra de estado
@@ -673,6 +728,21 @@ class MainWindow(QMainWindow):
                           tool("Quitar\nmarca", "unmark", T_UNMARK, "Quitar un resaltado, subrayado o tachado")], sep=False)
         lay.addStretch(1)
 
+        # Comentar
+        lay = self._ribbon_page()
+        self._group(lay, [tool("Nota", "note", T_C_NOTE, "Dejar una nota adhesiva en la página"),
+                          tool("Cuadro de\ntexto", "textbox", T_C_TEXT, "Escribir un comentario visible sobre la página"),
+                          tool("Resaltar y\ncomentar", "hl_comment", T_C_HIGHLIGHT, "Resaltar texto y añadirle un comentario")])
+        self.b_cpanel = B("Ver\ncomentarios", "comment", "Mostrar u ocultar la lista de comentarios", checkable=True)
+        self.b_cpanel.toggled.connect(self.toggle_comments)
+        self.b_cexport = B("Exportar\ncomentarios", "sheet_doc", "Guardar la lista de comentarios en Excel")
+        self.b_cexport.clicked.connect(self.export_comments)
+        self._group(lay, [self.b_cpanel, self.b_cexport])
+        self.b_author = B("Tu nombre", "user", "Nombre con el que se firman tus comentarios")
+        self.b_author.clicked.connect(lambda: self._author(ask=True, force=True))
+        self._group(lay, [self.b_author], sep=False)
+        lay.addStretch(1)
+
         # Formulario
         lay = self._ribbon_page()
         self.b_fields_on = B("Resaltar\ncampos", "fields_on", "Colorear los campos que se pueden rellenar", checkable=True)
@@ -715,13 +785,15 @@ class MainWindow(QMainWindow):
         self._group(lay, [self.b_verify], sep=False)
         lay.addStretch(1)
 
-        # OCR
+        # Escaneados
         lay = self._ribbon_page()
+        self.b_optimize = B("Optimizar", "optimize", "Enderezar, aclarar el fondo y dar nitidez a las páginas escaneadas")
+        self.b_optimize.clicked.connect(self.optimize_scans)
         self.b_ocr = B("Reconocer\ntexto", "scan", "Reconocer el texto de páginas escaneadas (OCR)")
         self.b_ocr.clicked.connect(self.run_ocr)
-        self._group(lay, [self.b_ocr], sep=False)
-        expl = QLabel("Convierte documentos escaneados (solo imágenes) en PDF con texto que se puede buscar, "
-                      "seleccionar y copiar.\nFunciona sin conexión a Internet. Idiomas: español e inglés.")
+        self._group(lay, [self.b_optimize, self.b_ocr], sep=False)
+        expl = QLabel("«Optimizar» endereza las páginas, deja el papel blanco y el texto nítido, y reduce el tamaño.\n"
+                      "«Reconocer texto» hace que se pueda buscar, seleccionar y copiar. Sin conexión a Internet.")
         expl.setObjectName("Muted")
         lay.addSpacing(10)
         lay.addWidget(expl)
@@ -731,7 +803,8 @@ class MainWindow(QMainWindow):
                             self.b_insert, self.b_extract, self.b_dup, self.b_delete, self.b_rotl,
                             self.b_rotr, self.b_up, self.b_down, self.b_sign, self.b_sign_inv,
                             self.b_verify, self.b_ocr, self.search, self.b_fields_on, self.b_form_reset,
-                            self.b_form_data, self.b_detect, self.b_flatten] + list(self.tool_buttons.values())
+                            self.b_form_data, self.b_detect, self.b_flatten, self.b_cpanel, self.b_cexport,
+                            self.b_optimize] + list(self.tool_buttons.values())
 
     # ================================================================== estado
     def _tab_changed(self, k):
@@ -856,7 +929,7 @@ class MainWindow(QMainWindow):
                            "mostrar ni rellenar sus campos. Ábrelo con Adobe Acrobat Reader.")
         elif self._scanned and tab != TAB_OCR and not self._form_state[1]:
             self._set_hint("info", "scan", "Este documento parece escaneado: su texto no se puede buscar ni copiar.",
-                           [("Reconocer texto (OCR)", self.run_ocr, True)])
+                           [("Optimizar", self.optimize_scans, False), ("Reconocer texto (OCR)", self.run_ocr, True)])
         elif self._form_state[1] and tab in (0, 1, TAB_FORM):
             missing = self._form_state[2]
             text = ("Este documento es un formulario: haz clic en un campo para rellenarlo; Tab pasa al siguiente.")
@@ -869,6 +942,16 @@ class MainWindow(QMainWindow):
                 text = "El autor ha limitado los cambios: para rellenar este formulario necesitas la contraseña de permisos."
                 btns = [("Introducir contraseña…", self._unlock_restrictions, False)]
             self._set_hint("info", "form", text, btns)
+        elif self._comment_count and tab in (0, 1, TAB_COMMENT) and not self.cpanel.isVisible():
+            n = self._comment_count
+            self._set_hint("info", "comment", f"Este documento tiene {n} comentario{'s' if n != 1 else ''}.",
+                           [("Ver comentarios", lambda: self.toggle_comments(True), True)])
+        elif tab == TAB_COMMENT:
+            self._set_hint("info", "comment", "Elige «Nota», «Cuadro de texto» o «Resaltar y comentar». Los comentarios "
+                           "se guardan en el PDF y los verá cualquiera que lo abra (Acrobat, Edge, Chrome, Vista Previa…).")
+        elif tab == TAB_OCR:
+            self._set_hint("info", "optimize", "«Optimizar» mejora las páginas escaneadas: las endereza, deja el papel "
+                           "blanco y el texto nítido. Después conviene «Reconocer texto».")
         elif tab == TAB_FORM:
             self._set_hint("info", "form", "Este documento no tiene campos para rellenar. Pulsa «Detectar campos» para "
                            "crearlos automáticamente, o elige un tipo de campo y dibújalo en la página.",
@@ -968,6 +1051,8 @@ class MainWindow(QMainWindow):
         self.viewer.set_tool(T_SELECT)
         self.tool_buttons[T_SELECT].setChecked(True)
         self._update_form_state()
+        self.viewer.sel_comment = None
+        self._refresh_comments()
         self.page_spin.setValue((d.page + 1) if d else 1)
         self.viewer._last_page = -1
         self.doc_tabs.blockSignals(True)
@@ -1304,9 +1389,21 @@ class MainWindow(QMainWindow):
                 return
             finally:
                 QApplication.restoreOverrideCursor()
+        try:
+            from ..core import vprinter
+            printed = vprinter.is_print_job(path)
+        except Exception:
+            printed = False
+        if printed:
+            # viene de la impresora NovoPDF: documento nuevo (Guardar pregunta dónde)
+            pdf.title = os.path.basename(path)
+            pdf.path = None
+            pdf.modified = True
         if pdf.path:
             self._add_recent(pdf.path)
         self._set_document(pdf, src=path, fp=fp)
+        if printed:
+            self.notify("Documento recibido de la impresora NovoPDF. Guárdalo con «Guardar» si quieres conservarlo.", 8000)
 
     def _welcome_action(self, a):
         {"open": self.open_file, "new": self.new_blank, "images": self.new_from_images,
@@ -1485,6 +1582,7 @@ class MainWindow(QMainWindow):
         self._scanned = self._scanned and self.pdf.looks_scanned()
         self.viewer.refresh(pages, structure=structure)
         self._update_form_state()
+        self._refresh_comments()
         if structure:
             self.thumbs.rebuild()
         else:
@@ -1681,6 +1779,9 @@ class MainWindow(QMainWindow):
         if kind.startswith("form_"):
             self._form_action(kind, i, data)
             return
+        if kind.startswith("comment_"):
+            self._comment_action(kind, i, data)
+            return
         if kind == "rotate_page":
             self.rotate_pages(data, [i])
             return
@@ -1793,7 +1894,7 @@ class MainWindow(QMainWindow):
                 if not rects:
                     return
                 self.pdf.checkpoint()
-                markup.add_mark(page, tool, rects, self.viewer.mark_colors.get(tool))
+                markup.add_mark(page, tool, rects, self.viewer.mark_colors.get(tool), author=self._author(ask=False))
                 n = len(words)
                 verb = {T_HIGHLIGHT: "Resaltada", T_UNDERLINE: "Subrayada", T_STRIKE: "Tachada"}[tool]
                 self.notify(f"{verb}{'s' if n > 1 else ''} {n} palabra{'s' if n > 1 else ''}. "
@@ -2061,6 +2162,9 @@ class MainWindow(QMainWindow):
         opts = d.result
         printer = d.printer
         name = printer.printerName() or os.path.basename(printer.outputFileName() or "")
+        if opts.get("wake") and printer.printerName() and not printer.outputFileName():
+            if not self._wake_printer(printer.printerName()):
+                return
         prog = QProgressDialog("Preparando la impresión…", "Cancelar", 0, max(1, len(opts["pages"])), self)
         prog.setWindowTitle("Imprimiendo")
         prog.setWindowModality(Qt.WindowModal)
@@ -2099,6 +2203,104 @@ class MainWindow(QMainWindow):
         _close(prog)
         copies = "" if opts["copies"] <= 1 else f" ({opts['copies']} copias)"
         self.notify(f"Enviado a «{name}»: {len(opts['pages'])} página{'s' if len(opts['pages']) != 1 else ''}{copies}.", 6000)
+        if opts.get("wake") and printer.printerName() and not printer.outputFileName():
+            self._watch_print_job(printer.printerName(), self.pdf.name)
+
+    # ------------------------------------------------------------------ impresoras dormidas
+    def _wake_printer(self, name: str) -> bool:
+        """Antes de imprimir: comprueba la impresora y la despierta si hace falta (en segundo
+        plano, con una ventana de espera que se puede cancelar). False = no imprimir."""
+        from ..core import printwake
+        if not printwake.IS_WINDOWS:
+            return True
+        state = {"done": False, "result": (True, "", None), "cancel": False, "el": 0.0, "total": 45.0}
+
+        def work():
+            try:
+                state["result"] = printwake.prepare(name, progress=lambda el, tot: state.update(el=el, total=tot),
+                                                    cancelled=lambda: state["cancel"])
+            except Exception as e:  # noqa
+                logging.getLogger("novopdf.impresion").warning("Comprobación de la impresora fallida: %s", e)
+            finally:
+                state["done"] = True
+        th = threading.Thread(target=work, daemon=True, name="NovoPDF-despertar")
+        th.start()
+        th.join(0.6)                      # casi siempre contesta enseguida: sin ventana
+        if not state["done"]:
+            prog = QProgressDialog(f"Comprobando la impresora «{name}»…", "Cancelar", 0, 100, self)
+            prog.setWindowTitle("Imprimir")
+            prog.setWindowModality(Qt.WindowModal)
+            prog.setMinimumDuration(0)
+            prog.setMinimumWidth(420)
+            prog.canceled.connect(lambda: state.update(cancel=True))
+            while not state["done"]:
+                if state["el"]:
+                    prog.setLabelText(f"La impresora «{name}» está en reposo o no contesta.\n"
+                                      f"Despertándola… ({int(state['el'])} s)")
+                    prog.setValue(min(99, int(100 * state["el"] / max(1, state["total"]))))
+                QApplication.processEvents()
+                th.join(0.1)
+                if prog.wasCanceled():
+                    break
+            _close(prog)
+            if state["cancel"] and not state["done"]:
+                self.notify("Impresión cancelada.", 4000)
+                return False
+        go, msg, st = state["result"]
+        if not go:
+            self.notify("Impresión cancelada.", 4000)
+            return False
+        if msg and "no contesta" in msg:
+            return dialogs.confirm(self, "La impresora no contesta", msg + "\n\n¿Quieres mandar el trabajo de todos "
+                                   "modos? (Se quedará en la cola hasta que la impresora esté disponible.)",
+                                   "Imprimir de todos modos", "Cancelar")
+        if msg:
+            self.notify(msg, 6000)
+        return True
+
+    def _watch_print_job(self, name: str, doc_name: str):
+        """Vigila el trabajo un rato: si se queda con error, despierta la impresora y lo reintenta."""
+        from ..core import printwake
+        if not printwake.IS_WINDOWS:
+            return
+        st = {"ticks": 0, "retries": 0, "busy": False}
+        timer = QTimer(self)
+        timer.setInterval(3000)
+        log = logging.getLogger("novopdf.impresion")
+
+        def retry(jid):
+            try:
+                s0 = printwake.printer_state(name)
+                if s0.host:
+                    printwake.wake(s0.host, timeout=40)
+                printwake.clear_offline(name)
+                printwake.restart_jobs(name, [jid])
+            finally:
+                st["busy"] = False
+
+        def tick():
+            st["ticks"] += 1
+            if st["busy"]:
+                return
+            prob = printwake.job_problem(name, doc_name)
+            if prob and st["retries"] < 3:
+                st["retries"] += 1
+                st["busy"] = True
+                log.warning("El trabajo %s en «%s» se ha quedado con estado %#x: se despierta y se reintenta",
+                            prob[0], name, prob[1])
+                self.notify(f"La impresora «{name}» no respondía: despertándola y reintentando…", 8000)
+                threading.Thread(target=retry, args=(prob[0],), daemon=True).start()
+                return
+            if not printwake.job_pending(name, doc_name) or st["ticks"] > 40:
+                if st["retries"] and not printwake.job_pending(name, doc_name):
+                    self.notify(f"«{doc_name}» se ha impreso en «{name}».", 6000)
+                elif st["retries"] and st["ticks"] > 40:
+                    self.notify(f"El trabajo sigue en la cola de «{name}». Comprueba la impresora.", 10000)
+                timer.stop()
+                timer.deleteLater()
+        timer.timeout.connect(tick)
+        timer.start()
+        self._print_watch = timer
 
     # ================================================================== Word y Excel
     def export_office(self, kind, _after_ocr=False):
@@ -2425,6 +2627,308 @@ class MainWindow(QMainWindow):
             self._start_ocr(new_pages, "spa", 300, True, on_finished=summary)
         else:
             summary(None)
+
+    # ================================================================== comentarios
+    def _author(self, ask=True, force=False) -> str:
+        """Nombre para los comentarios (se pregunta la primera vez)."""
+        from ..core import comments as C
+        name = self.settings.value("comments/author", "") or ""
+        if (not name and ask) or force:
+            d = dialogs.AuthorDialog(self, name or C.default_author())
+            if d.exec():
+                name = d.value()
+                self.settings.setValue("comments/author", name)
+                self.notify(f"Tus comentarios irán firmados como «{name}».", 4000)
+            elif not name:
+                name = C.default_author()
+        return name or C.default_author()
+
+    def toggle_comments(self, on: bool):
+        on = bool(on) and self.pdf is not None
+        self.cpanel.setVisible(on)
+        self.b_cpanel.blockSignals(True)
+        self.b_cpanel.setChecked(on)
+        self.b_cpanel.blockSignals(False)
+        self.settings.setValue("comments/panel", on)
+        if on:
+            self._refresh_comments()
+        else:
+            self.viewer.show_comment(0, None)
+        self._refresh_hint()
+
+    def _refresh_comments(self):
+        from ..core import comments as C
+        if not self.pdf:
+            self._comment_count = 0
+            self.cpanel.set_comments([])
+            self.cpanel.setVisible(False)
+            return
+        try:
+            if self.cpanel.isVisible():
+                items = C.all_comments(self.pdf.doc)
+                self._comment_count = len(items)
+                self.cpanel.set_comments(items)
+            else:
+                self._comment_count = C.count(self.pdf.doc)
+        except Exception:
+            logging.getLogger("novopdf.comentarios").exception("No se pudieron leer los comentarios")
+            self._comment_count = 0
+
+    def _goto_comment(self, i, rect):
+        self.viewer.go_to(i, rect)
+        self.viewer.show_comment(i, rect)
+
+    def _open_comment(self, i, xref, edit=False):
+        if not self.cpanel.isVisible():
+            self.toggle_comments(True)
+        if self.cpanel.select(i, xref, go=False):
+            card = self.cpanel.card_for(*self.cpanel.selected)
+            if card is not None:
+                self.viewer.show_comment(card.c.page, card.c.rect)
+                if edit:
+                    card._reply()
+
+    def _can_comment(self) -> bool:
+        if self.pdf.restricted and not self.pdf.protection.allow_annotate:
+            if not self._can_edit(True):
+                return False
+        if self.pdf.has_signatures() and not self.sign_warned and not self._can_edit(True):
+            return False
+        return True
+
+    def _comment_action(self, kind, i, data):
+        from ..core import comments as C
+        from ..core import markup
+        if not self.pdf:
+            return
+        if kind == "comment_open":
+            self._open_comment(i, data)
+            return
+        if kind == "comment_reply":
+            self._open_comment(i, data, edit=True)
+            return
+        if not self._can_comment():
+            return
+        doc = self.pdf.doc
+        select = None
+        log = logging.getLogger("novopdf.comentarios")
+        try:
+            if kind == "comment_note":
+                author = self._author()
+                last = self.settings.value("comments/color", "")
+                try:
+                    col = tuple(float(v) for v in str(last).split(",")) if last else C.NOTE_COLORS[0][1]
+                except ValueError:
+                    col = C.NOTE_COLORS[0][1]
+                d = dialogs.CommentDialog(self, "Nueva nota", author, "", col, C.NOTE_COLORS)
+                if not d.exec():
+                    return
+                text, col = d.values()
+                self.settings.setValue("comments/color", ",".join(f"{v:.3f}" for v in col))
+                self.pdf.checkpoint()
+                select = C.add_note(doc, i, data, text, author, col)
+                self.notify("Nota añadida. Arrástrala para moverla; con clic se ve en el panel de comentarios.", 5000)
+            elif kind == "comment_text":
+                author = self._author()
+                d = dialogs.FreeTextDialog(self)
+                if not d.exec():
+                    return
+                v = d.values()
+                self.pdf.checkpoint()
+                select = C.add_freetext(doc, i, data, v["text"], author, v["fontsize"], v["color"], v["fill"], v["border"])
+            elif kind == "comment_edit_text":
+                c = next((x for x in self.viewer.comments(i) if x.xref == data), None)
+                if c is None:
+                    return
+                da = doc.xref_get_key(data, "DA")[1]
+                import re
+                m = re.search(r"([\d.]+)\s+Tf", da)
+                mc = re.search(r"([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+rg", da)
+                d = dialogs.FreeTextDialog(self, c.text, float(m.group(1)) if m else 11,
+                                           tuple(float(mc.group(k)) for k in (1, 2, 3)) if mc else (0, 0, 0),
+                                           C._freetext_fill(doc, data),
+                                           bool((doc.xref_get_key(data, "BS/W")[1] or "0") not in ("0", "null")),
+                                           creating=False)
+                if not d.exec():
+                    return
+                v = d.values()
+                self.pdf.checkpoint()
+                C.set_text(doc, i, data, v["text"], fontsize=v["fontsize"], color=v["color"], fill=v["fill"],
+                           border=v["border"])
+                select = None
+            elif kind == "comment_mark":
+                author = self._author()
+                rects = markup.line_rects(data)
+                if not rects:
+                    return
+                self.pdf.checkpoint()
+                a = markup.add_mark(doc[i], markup.HIGHLIGHT, rects, self.viewer.mark_colors.get(T_HIGHLIGHT), author=author)
+                xref = a.xref
+                d = dialogs.CommentDialog(self, "Comentar el texto resaltado", author)
+                if d.exec():
+                    C.comment_markup(doc, i, xref, d.values()[0], author)
+                select = xref
+            elif kind == "comment_reply_text":
+                xref, text = data
+                self.pdf.checkpoint()
+                C.add_reply(doc, i, xref, text, self._author())
+                select = xref
+            elif kind == "comment_set_text":
+                xref, text = data
+                self.pdf.checkpoint()
+                c = next((x for x in self.viewer.comments(i) if x.xref == xref), None)
+                if c is not None and c.kind in C.MARKUPS:
+                    C.comment_markup(doc, i, xref, text, self._author())
+                else:
+                    C.set_text(doc, i, xref, text)
+                select = xref
+            elif kind == "comment_resolve":
+                xref, on = data
+                self.pdf.checkpoint()
+                C.set_resolved(doc, i, xref, on, self._author())
+                select = xref
+            elif kind == "comment_move":
+                xref, rect = data
+                self.pdf.checkpoint()
+                C.move(doc, i, xref, rect)
+                select = xref
+            elif kind == "comment_delete":
+                c = next((x for x in self.viewer.comments(i) if x.xref == data), None)
+                n = len(c.replies) if c else 0
+                what = f"este comentario y sus {n} respuestas" if n else "este comentario"
+                if not dialogs.confirm(self, "Eliminar comentario", f"¿Eliminar {what}?\n\nSe puede deshacer con Ctrl+Z.",
+                                       "Eliminar", "Cancelar"):
+                    return
+                self.pdf.checkpoint()
+                C.delete(doc, i, data)
+                self.viewer.show_comment(i, None)
+            else:
+                return
+        except C.CommentError as e:
+            self.pdf.drop_checkpoint()
+            dialogs.error(self, "Comentarios", str(e))
+            return
+        except Exception as e:  # noqa
+            log.exception("Comentario fallido")
+            if self.pdf.can_undo():
+                self.pdf.undo()
+                self.pdf._redo.clear()
+            dialogs.error(self, "No se pudo guardar el comentario", str(e))
+            self.after_change(structure=True)
+            return
+        self.after_change(pages=[i])
+        if select is not None and self.cpanel.isVisible():
+            self.cpanel.select(i, select, go=False)
+            card = self.cpanel.card_for(*self.cpanel.selected) if self.cpanel.selected else None
+            if card is not None:
+                self.viewer.show_comment(card.c.page, card.c.rect)
+
+    def export_comments(self):
+        from ..core import comments as C
+        if not self.pdf:
+            return
+        items = C.all_comments(self.pdf.doc)
+        if not items:
+            dialogs.info(self, "Exportar comentarios", "Este documento no tiene comentarios.")
+            return
+        base = os.path.splitext(self.pdf.name)[0] + "_comentarios.xlsx"
+        folder = os.path.dirname(self.pdf.path) if self.pdf.path else self.settings.value("last_dir", os.path.expanduser("~"))
+        path, _ = QFileDialog.getSaveFileName(self, "Guardar la lista de comentarios", os.path.join(folder, base),
+                                              "Hoja de cálculo de Excel (*.xlsx)")
+        if not path:
+            return
+        if not path.lower().endswith(".xlsx"):
+            path += ".xlsx"
+        try:
+            C.write_xlsx(path, self.pdf.name, items)
+        except PermissionError:
+            dialogs.error(self, "Exportar comentarios", "No se puede escribir el archivo. Si está abierto en Excel, "
+                          "ciérralo y vuelve a intentarlo.")
+            return
+        except Exception as e:  # noqa
+            dialogs.error(self, "Exportar comentarios", str(e))
+            return
+        self.notify(f"Lista de {len(items)} comentarios guardada.", 4000)
+
+    # ================================================================== optimizar escaneados
+    def optimize_scans(self):
+        from ..core import optimize
+        if not self.pdf or not self._can_edit(True):
+            return
+        self._commit_form()
+        sel = self.thumbs.selected_pages()
+        d = dialogs.OptimizeDialog(self, self.pdf.doc, self.pdf.page_count, self.viewer.current_page(), sel,
+                                   self.settings)
+        if not d.exec():
+            return
+        d.save_settings()
+        pages, opts, do_ocr = d.pages(), d.options(), d.ocr.isChecked()
+        scanned = [i for i in pages if optimize.is_scanned(self.pdf.doc[i])]
+        if not scanned:
+            dialogs.info(self, "Optimizar escaneados", "Las páginas elegidas no son escaneadas (tienen texto de verdad), "
+                         "así que no hay nada que optimizar.")
+            return
+        prog = QProgressDialog("Preparando…", "Cancelar", 0, len(scanned), self)
+        prog.setWindowTitle("Optimizando escaneados")
+        prog.setWindowModality(Qt.WindowModal)
+        prog.setMinimumDuration(0)
+        prog.setMinimumWidth(380)
+        prog.setValue(0)
+        worker = OptimizeWorker(self.pdf.plain_bytes(), scanned, opts)
+        self._opt_worker = worker
+        pdf = self.pdf
+
+        def on_progress(k, n):
+            prog.setMaximum(n)
+            prog.setValue(k)
+            prog.setLabelText(f"Optimizando la página {min(k + 1, n)} de {n}…")
+
+        def on_done(data, rep):
+            _close(prog)
+            if self.pdf is not pdf:
+                return
+            done = rep.done
+            if not done:
+                errs = [p.reason for p in rep.pages if p.reason]
+                dialogs.info(self, "Optimizar escaneados", "No se ha cambiado ninguna página." +
+                             (f"\n\n{errs[0]}" if errs else ""))
+                return
+            self.pdf.replace_with_bytes(data)
+            self.after_change(structure=True)
+            straightened = [p for p in done if p.angle]
+            turned = [p for p in done if p.turned]
+            mb = lambda b: f"{b / 1048576:.1f} MB".replace(".", ",")
+            msg = [f"Se han optimizado {len(done)} página{'s' if len(done) != 1 else ''}."]
+            if straightened:
+                mx = max(abs(p.angle) for p in straightened)
+                msg.append(f"Enderezadas: {len(straightened)} (hasta {mx:.1f}°).".replace(".", ",", 1))
+            if turned:
+                msg.append(f"Giradas porque estaban de lado o al revés: {len(turned)}.")
+            msg.append(f"Tamaño del documento: {mb(rep.size_before)} → {mb(rep.size_after)}.")
+            summary = "\n".join(msg)
+            if do_ocr:
+                pages_done = [p.page for p in done]
+
+                def after_ocr(words):
+                    extra = (f"\n\nTexto reconocido: {words} palabras." if words else
+                             "\n\nNo se ha encontrado texto que reconocer.") if words is not None else ""
+                    dialogs.info(self, "Optimizar escaneados", summary + extra + "\n\nGuarda el documento para "
+                                 "conservar el resultado (Ctrl+Z lo deshace).")
+                self._start_ocr(pages_done, on_finished=after_ocr)
+            else:
+                dialogs.info(self, "Optimizar escaneados", summary + "\n\nGuarda el documento para conservar el "
+                             "resultado (Ctrl+Z lo deshace).")
+
+        def on_fail(msg):
+            _close(prog)
+            if msg:
+                dialogs.error(self, "Optimizar escaneados", msg)
+
+        worker.progress.connect(on_progress)
+        worker.done.connect(on_done)
+        worker.failed.connect(on_fail)
+        prog.canceled.connect(worker.cancel)
+        worker.start()
 
     # ================================================================== formularios
     def _commit_form(self):
@@ -3080,6 +3584,14 @@ class MainWindow(QMainWindow):
             "en un impreso sin formulario (rayas, recuadros, tablas y casillas), añadir campos de texto, casillas, "
             "opciones, desplegables, listas y firmas, cambiarlos con <b>Editar campos</b> y <b>aplanar</b> el "
             "formulario para que quede fijo.</p>"
+            "<p><b>Comentar</b>: notas, cuadros de texto y comentarios sobre texto resaltado, con respuestas y "
+            "«resuelto». Se guardan en el PDF como comentarios estándar: los ve cualquiera que lo abra (Acrobat, "
+            "Edge, Chrome, Vista Previa…). «Ver comentarios» muestra la lista; se puede exportar a Excel.</p>"
+            "<p><b>Escaneados › Optimizar</b>: endereza las páginas torcidas, gira las que están de lado o al "
+            "revés, deja el papel blanco y el texto nítido, y reduce el tamaño; después conviene «Reconocer "
+            "texto».</p>"
+            "<p><b>Imprimir</b> a impresoras Wi-Fi: NovoPDF las despierta si están en reposo y reintenta el "
+            "trabajo si se queda atascado.</p>"
             "<p><b>Firmar</b>: dibuja un recuadro en la página y elige tu certificado (instalado en el sistema "
             "o archivo .pfx/.p12). En un formulario, haz clic en su campo de firma.</p>"
             "<p><b>Escanear</b>: crea un PDF directamente desde el escáner (cristal o alimentador, "
@@ -3101,11 +3613,85 @@ class MainWindow(QMainWindow):
             b.setCursor(Qt.PointingHandCursor)
             b.clicked.connect(lambda: (d.accept(), QTimer.singleShot(0, self.make_default_app)))
             d.body.addWidget(b)
+        from ..core import vprinter
+        if vprinter.supported():
+            vb = QPushButton(icons.icon("printer_v", color=theme.ACCENT), " Impresora NovoPDF: imprimir desde cualquier "
+                             "programa y abrirlo aquí")
+            vb.setObjectName("Link")
+            vb.setCursor(Qt.PointingHandCursor)
+            vb.clicked.connect(lambda: (d.accept(), QTimer.singleShot(0, self.show_virtual_printer)))
+            d.body.addWidget(vb)
+        bb = QPushButton(icons.icon("browser", color=theme.ACCENT), " Abrir con NovoPDF los PDF de los navegadores")
+        bb.setObjectName("Link")
+        bb.setCursor(Qt.PointingHandCursor)
+        bb.clicked.connect(lambda: (d.accept(), QTimer.singleShot(0, self.show_browser_help)))
+        d.body.addWidget(bb)
         ab = QPushButton(icons.icon("info", color=theme.ACCENT), " Acerca de NovoPDF (licencia y código fuente)")
         ab.setObjectName("Link")
         ab.setCursor(Qt.PointingHandCursor)
         ab.clicked.connect(lambda: (d.accept(), QTimer.singleShot(0, self.show_about)))
         d.body.addWidget(ab)
+        d.exec()
+
+    def show_virtual_printer(self):
+        from ..core import vprinter
+        installed = vprinter.is_installed()
+        running = vprinter.listener_running() if vprinter.IS_WINDOWS else True
+        mac = vprinter.IS_MAC
+        if installed:
+            sub = ("Está instalada" + ("" if running or mac else ", pero el receptor no está en marcha (se arrancará "
+                                       "ahora)") + ".")
+        else:
+            sub = "Permite imprimir desde cualquier programa y abrir el resultado en NovoPDF."
+        d = dialogs.Dialog(self, "Impresora NovoPDF", sub, "printer_v",
+                           ok_text=("Quitarla" if installed else ("Activar" if mac else "Instalar…")),
+                           cancel_text="Cerrar", width=520)
+        txt = QLabel(
+            ("<p>En el Mac aparece en el cuadro de impresión de cualquier programa, en el menú <b>PDF</b> "
+             "(abajo a la izquierda): <b>«Abrir en NovoPDF»</b>.</p>" if mac else
+             "<p>Aparece como una impresora más, <b>«NovoPDF»</b>, en Word, Excel, el navegador o cualquier "
+             "programa. Al imprimir en ella, el documento se abre en NovoPDF (en una pestaña nueva) para "
+             "revisarlo, firmarlo, comentarlo o guardarlo como PDF.</p>"
+             "<p>Usa «Microsoft Print to PDF», que viene con Windows 10 y 11. Para instalarla, Windows pedirá "
+             "<b>permiso de administrador</b> una vez. Un pequeño receptor de NovoPDF se pone en marcha al "
+             "iniciar sesión (apenas usa memoria).</p>"
+             "<p style='color:#6b7385'>Si mueves la carpeta de NovoPDF, ábrelo una vez para que la impresora "
+             "siga funcionando.</p>"))
+        txt.setWordWrap(True)
+        d.body.addWidget(txt)
+        if installed and not running and not mac:
+            vprinter.ensure_listener()
+        if not d.exec():
+            return
+        try:
+            QApplication.setOverrideCursor(Qt.WaitCursor)
+            msg = vprinter.uninstall() if installed else vprinter.install()
+        except vprinter.PrinterSetupError as e:
+            QApplication.restoreOverrideCursor()
+            dialogs.error(self, "Impresora NovoPDF", str(e))
+            return
+        except Exception as e:  # noqa
+            QApplication.restoreOverrideCursor()
+            logging.getLogger("novopdf.impresora").exception("Instalación de la impresora fallida")
+            dialogs.error(self, "Impresora NovoPDF", f"No se pudo completar: {e}")
+            return
+        QApplication.restoreOverrideCursor()
+        dialogs.info(self, "Impresora NovoPDF", msg)
+
+    def show_browser_help(self):
+        from ..core import fileassoc, vprinter
+        d = dialogs.Dialog(self, "PDF de los navegadores en NovoPDF",
+                           "Para que los PDF que abres en Internet se abran con NovoPDF en lugar del visor del "
+                           "navegador.", "browser", ok_text="Entendido", cancel_text="", width=600)
+        txt = QLabel(vprinter.BROWSER_HELP)
+        txt.setWordWrap(True)
+        d.body.addWidget(txt)
+        if fileassoc.supported():
+            b = QPushButton(icons.icon("check", color=theme.ACCENT), " Abrir siempre los PDF con NovoPDF")
+            b.setObjectName("Link")
+            b.setCursor(Qt.PointingHandCursor)
+            b.clicked.connect(lambda: (d.accept(), QTimer.singleShot(0, self.make_default_app)))
+            d.body.addWidget(b)
         d.exec()
 
     def show_about(self):

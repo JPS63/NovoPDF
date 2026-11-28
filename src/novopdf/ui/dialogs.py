@@ -1606,6 +1606,292 @@ class DetectFieldsDialog(Dialog):
         self.body.addWidget(self.only_page)
 
 
+class _Swatches(QWidget):
+    """Fila de muestras de color para elegir con un clic."""
+    changed = Signal()
+
+    def __init__(self, colors, current):
+        super().__init__()
+        lay = QHBoxLayout(self)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(6)
+        self.group = QButtonGroup(self)
+        self.colors = colors
+        for n, (name, col) in enumerate(colors):
+            b = QToolButton()
+            b.setCheckable(True)
+            b.setToolTip(name)
+            b.setFixedSize(26, 26)
+            css = QColor.fromRgbF(*col).name() if col else "white"
+            b.setStyleSheet(f"QToolButton {{ background: {css}; border: 2px solid #d0d5df; border-radius: 13px; }}"
+                            f"QToolButton:checked {{ border: 3px solid {theme.ACCENT}; }}")
+            if col is None:
+                b.setText("✕")
+            self.group.addButton(b, n)
+            lay.addWidget(b)
+            if current is not None and col is not None and all(abs(a - c) < 0.02 for a, c in zip(col, current)) \
+                    or (current is None and col is None):
+                b.setChecked(True)
+        if self.group.checkedId() < 0 and self.group.buttons():
+            self.group.buttons()[0].setChecked(True)
+        self.group.idClicked.connect(lambda _: self.changed.emit())
+        lay.addStretch(1)
+
+    def value(self):
+        return self.colors[max(0, self.group.checkedId())][1]
+
+
+class CommentDialog(Dialog):
+    """Escribir una nota o el comentario de una marca."""
+
+    def __init__(self, parent, title, author, text="", color=None, colors=None):
+        super().__init__(parent, title, f"Autor: {author}", "comment", ok_text="Guardar", width=440)
+        self.text = QPlainTextEdit(text)
+        self.text.setPlaceholderText("Escribe el comentario…")
+        self.text.setMinimumHeight(110)
+        self.body.addWidget(self.text)
+        self.colors = None
+        if colors:
+            row = QHBoxLayout()
+            row.addWidget(QLabel("Color:"))
+            self.colors = _Swatches(colors, color)
+            row.addWidget(self.colors, 1)
+            self.body.addLayout(row)
+        self.text.setFocus()
+
+    def validate(self) -> bool:
+        if not self.text.toPlainText().strip():
+            self.show_error("Escribe el comentario.")
+            return False
+        return True
+
+    def values(self):
+        return self.text.toPlainText().strip(), (self.colors.value() if self.colors else None)
+
+
+class FreeTextDialog(Dialog):
+    """Cuadro de texto sobre la página."""
+
+    def __init__(self, parent, text="", fontsize=11, color=(0.75, 0.05, 0.05), fill=None, border=True,
+                 creating=True):
+        from ..core import comments as C
+        super().__init__(parent, "Cuadro de texto" if creating else "Cambiar el cuadro de texto",
+                         "El texto se verá sobre la página en cualquier lector de PDF.", "textbox",
+                         ok_text="Añadir" if creating else "Guardar", width=460)
+        self.text = QPlainTextEdit(text)
+        self.text.setMinimumHeight(100)
+        self.text.setPlaceholderText("Escribe el texto…")
+        self.body.addWidget(self.text)
+        f = QFormLayout()
+        f.setLabelAlignment(Qt.AlignRight)
+        self.size = QSpinBox()
+        self.size.setRange(6, 36)
+        self.size.setValue(int(round(fontsize)))
+        self.size.setSuffix(" pt")
+        f.addRow("Tamaño de letra:", self.size)
+        self.color = _Swatches([("Rojo", (0.75, 0.05, 0.05)), ("Azul", (0.1, 0.25, 0.75)),
+                                ("Verde", (0.05, 0.5, 0.2)), ("Negro", (0, 0, 0))], color)
+        f.addRow("Color del texto:", self.color)
+        self.fill = _Swatches(C.FREETEXT_FILLS, fill)
+        f.addRow("Fondo:", self.fill)
+        self.border = QCheckBox("Con borde")
+        self.border.setChecked(border)
+        f.addRow("", self.border)
+        self.body.addLayout(f)
+        self.text.setFocus()
+
+    def validate(self) -> bool:
+        if not self.text.toPlainText().strip():
+            self.show_error("Escribe el texto.")
+            return False
+        return True
+
+    def values(self):
+        return dict(text=self.text.toPlainText().strip(), fontsize=float(self.size.value()),
+                    color=self.color.value(), fill=self.fill.value(), border=self.border.isChecked())
+
+
+class AuthorDialog(Dialog):
+    """Nombre con el que se firman los comentarios."""
+
+    def __init__(self, parent, name):
+        super().__init__(parent, "Tu nombre en los comentarios",
+                         "Es el nombre que verán los demás junto a tus comentarios, notas y marcas "
+                         "(en NovoPDF, Acrobat y otros lectores).", "user", ok_text="Guardar", width=440)
+        self.name = QLineEdit(name)
+        self.name.setPlaceholderText("Nombre y apellidos")
+        self.body.addWidget(self.name)
+        self.name.selectAll()
+        self.name.setFocus()
+
+    def validate(self) -> bool:
+        if not self.name.text().strip():
+            self.show_error("Escribe tu nombre.")
+            return False
+        return True
+
+    def value(self) -> str:
+        return " ".join(self.name.text().split())
+
+
+class OptimizeDialog(Dialog):
+    """Optimizar escaneados, con vista previa de antes y después."""
+
+    def __init__(self, parent, doc, page_count, current, selected, settings):
+        from ..core import ocr as _ocr
+        super().__init__(parent, "Optimizar escaneados",
+                         "Endereza las páginas, deja el papel blanco y el texto nítido, y reduce el tamaño. "
+                         "Así se leen, imprimen y reconocen (OCR) mejor.", "optimize", ok_text="Optimizar",
+                         width=880)
+        self.doc, self.current, self.settings = doc, current, settings
+        row = QHBoxLayout()
+        row.setSpacing(18)
+        left = QVBoxLayout()
+        f = QFormLayout()
+        f.setLabelAlignment(Qt.AlignRight)
+        g = settings.value
+        self.deskew = QCheckBox("Enderezar las páginas torcidas")
+        self.deskew.setChecked(g("optimize/deskew", True, type=bool))
+        self.orient = QCheckBox("Girar las páginas de lado o al revés")
+        self.orient.setChecked(g("optimize/orient", True, type=bool))
+        self.clean = QCheckBox("Papel blanco (quitar sombras y fondo gris)")
+        self.clean.setChecked(g("optimize/clean", True, type=bool))
+        for w in (self.deskew, self.orient, self.clean):
+            f.addRow("", w)
+        self.sharp = QComboBox()
+        for label, v in (("Sin cambios", 0), ("Suave", 1), ("Normal (recomendado)", 2), ("Fuerte", 3)):
+            self.sharp.addItem(label, v)
+        self.sharp.setCurrentIndex(self.sharp.findData(int(g("optimize/sharpen", 2))))
+        f.addRow("Nitidez:", self.sharp)
+        self.mode = QComboBox()
+        for label, v in (("Automático (grises o color)", "auto"), ("Color", "color"), ("Escala de grises", "gray"),
+                         ("Blanco y negro (lo más pequeño)", "bw")):
+            self.mode.addItem(label, v)
+        self.mode.setCurrentIndex(max(0, self.mode.findData(g("optimize/mode", "auto"))))
+        f.addRow("Color:", self.mode)
+        self.dpi = QComboBox()
+        for label, v in (("Alta: 300 ppp (recomendado para OCR)", 300), ("Media: 200 ppp", 200),
+                         ("Compacta: 150 ppp", 150)):
+            self.dpi.addItem(label, v)
+        self.dpi.setCurrentIndex(max(0, self.dpi.findData(int(g("optimize/dpi", 300)))))
+        f.addRow("Resolución:", self.dpi)
+        for cb in (self.sharp, self.mode, self.dpi):
+            cb.setMinimumHeight(30)
+            cb.setMinimumWidth(270)
+        left.addLayout(f)
+        self.r_all = QRadioButton(f"Todo el documento ({page_count} páginas)")
+        self.r_cur = QRadioButton(f"Solo la página actual ({current + 1})")
+        self.r_sel = QRadioButton(f"Páginas seleccionadas ({len(selected)})")
+        self.r_all.setChecked(True)
+        self.r_sel.setEnabled(len(selected) > 1)
+        for r in (self.r_all, self.r_cur, self.r_sel):
+            left.addWidget(r)
+        self.ocr = QCheckBox("Reconocer el texto (OCR) después")
+        self.ocr.setChecked(g("optimize/ocr", True, type=bool) and bool(_ocr.tessdata_dir()))
+        self.ocr.setEnabled(bool(_ocr.tessdata_dir()))
+        self.ocr.setToolTip("La capa de texto anterior se quita al enderezar (ya no coincidiría): "
+                            "conviene volver a reconocer el texto.")
+        left.addWidget(self.ocr)
+        note = QLabel("Solo se cambian las páginas escaneadas. Se puede deshacer con Ctrl+Z.")
+        note.setObjectName("Muted")
+        note.setWordWrap(True)
+        left.addWidget(note)
+        left.addStretch(1)
+        row.addLayout(left, 0)
+        prev = QVBoxLayout()
+        pics = QHBoxLayout()
+        self.before = QLabel()
+        self.after = QLabel()
+        for lab, title in ((self.before, "Antes"), (self.after, "Después")):
+            col = QVBoxLayout()
+            t = QLabel(title)
+            t.setAlignment(Qt.AlignCenter)
+            t.setStyleSheet("font-weight: 600;")
+            col.addWidget(t)
+            lab.setFixedSize(230, 310)
+            lab.setAlignment(Qt.AlignCenter)
+            lab.setStyleSheet(f"background: #eef1f6; border: 1px solid {theme.BORDER};")
+            col.addWidget(lab)
+            pics.addLayout(col)
+        prev.addLayout(pics)
+        self.info = QLabel("")
+        self.info.setObjectName("Muted")
+        self.info.setWordWrap(True)
+        self.info.setAlignment(Qt.AlignCenter)
+        prev.addWidget(self.info)
+        row.addLayout(prev, 1)
+        self.body.addLayout(row)
+        from PySide6.QtCore import QTimer
+        self._timer = QTimer(self)
+        self._timer.setSingleShot(True)
+        self._timer.setInterval(350)
+        self._timer.timeout.connect(self.update_preview)
+        for w in (self.deskew, self.orient, self.clean):
+            w.toggled.connect(lambda _: self._timer.start())
+        for w in (self.sharp, self.mode, self.dpi):
+            w.currentIndexChanged.connect(lambda _: self._timer.start())
+        self._pc, self._sel = page_count, selected
+        QTimer.singleShot(50, self.update_preview)
+
+    def options(self):
+        from ..core import optimize
+        return optimize.Options(orient=self.orient.isChecked(), deskew=self.deskew.isChecked(),
+                                clean=self.clean.isChecked(), sharpen=int(self.sharp.currentData()),
+                                mode=self.mode.currentData(), dpi=int(self.dpi.currentData()))
+
+    def save_settings(self):
+        s = self.settings
+        s.setValue("optimize/deskew", self.deskew.isChecked())
+        s.setValue("optimize/orient", self.orient.isChecked())
+        s.setValue("optimize/clean", self.clean.isChecked())
+        s.setValue("optimize/sharpen", int(self.sharp.currentData()))
+        s.setValue("optimize/mode", self.mode.currentData())
+        s.setValue("optimize/dpi", int(self.dpi.currentData()))
+        s.setValue("optimize/ocr", self.ocr.isChecked())
+
+    def pages(self) -> list[int]:
+        if self.r_cur.isChecked():
+            return [self.current]
+        if self.r_sel.isChecked():
+            return list(self._sel)
+        return list(range(self._pc))
+
+    @staticmethod
+    def _pix(img, lab):
+        from PySide6.QtGui import QImage, QPixmap
+        im = img.convert("RGB")
+        q = QImage(im.tobytes(), im.width, im.height, im.width * 3, QImage.Format_RGB888).copy()
+        lab.setPixmap(QPixmap.fromImage(q).scaled(lab.width() - 6, lab.height() - 6, Qt.KeepAspectRatio,
+                                                   Qt.SmoothTransformation))
+
+    def update_preview(self):
+        from PySide6.QtWidgets import QApplication
+        from ..core import ocr as _ocr
+        from ..core import optimize
+        QApplication.setOverrideCursor(Qt.WaitCursor)
+        try:
+            before, after, res = optimize.preview(self.doc, self.current, self.options(), dpi=72,
+                                                  tessdata=_ocr.tessdata_dir())
+        except Exception as e:  # noqa
+            self.info.setText(f"No se puede mostrar la vista previa: {e}")
+            return
+        finally:
+            QApplication.restoreOverrideCursor()
+        self._pix(before, self.before)
+        self._pix(after, self.after)
+        if not res.done:
+            self.info.setText(f"Página {self.current + 1}: {res.reason}; se dejará como está.")
+            return
+        parts = []
+        if res.angle:
+            parts.append(f"enderezada {abs(res.angle):.1f}°".replace(".", ","))
+        if res.turned:
+            parts.append({90: "girada a la derecha", 180: "girada 180°", 270: "girada a la izquierda"}[res.turned])
+        parts.append({"color": "en color", "gray": "en grises", "bw": "en blanco y negro"}.get(res.mode, ""))
+        parts.append(f"{res.dpi} ppp")
+        self.info.setText(f"Página {self.current + 1}: " + ", ".join(p for p in parts if p) + ".")
+
+
 class AboutDialog(Dialog):
     """«Acerca de NovoPDF»: versión, copyright, licencia AGPL y enlace al código fuente."""
 

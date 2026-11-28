@@ -19,8 +19,8 @@
 #include <winver.h>
 1 ICON "novopdf.ico"
 VS_VERSION_INFO VERSIONINFO
-FILEVERSION 1,6,0,0
-PRODUCTVERSION 1,6,0,0
+FILEVERSION 1,7,0,0
+PRODUCTVERSION 1,7,0,0
 FILEOS VOS_NT_WINDOWS32
 FILETYPE VFT_APP
 BEGIN
@@ -30,8 +30,8 @@ BEGIN
     BEGIN
       VALUE "FileDescription", "NovoPDF - Trabajar con documentos PDF"
       VALUE "ProductName", "NovoPDF"
-      VALUE "FileVersion", "1.6.0"
-      VALUE "ProductVersion", "1.6.0"
+      VALUE "FileVersion", "1.7.0"
+      VALUE "ProductVersion", "1.7.0"
       VALUE "OriginalFilename", "NovoPDF.exe"
       VALUE "InternalName", "NovoPDF"
       VALUE "LegalCopyright", "Copyright \251 2026 Jes\372s Punz\363n Suero. GNU AGPL v3 o posterior."
