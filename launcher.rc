@@ -1,0 +1,44 @@
+/*
+ * NovoPDF - aplicacion sencilla para trabajar con documentos PDF
+ * Copyright (C) 2026 Jesus Punzon Suero
+ *
+ * Este programa es software libre: puede redistribuirlo y/o modificarlo bajo
+ * los terminos de la Licencia Publica General Affero de GNU publicada por la
+ * Free Software Foundation, ya sea la version 3 de la Licencia o (a su
+ * eleccion) cualquier version posterior.
+ *
+ * Este programa se distribuye con la esperanza de que sea util, pero SIN
+ * NINGUNA GARANTIA; ni siquiera la garantia implicita de COMERCIABILIDAD o
+ * IDONEIDAD PARA UN PROPOSITO PARTICULAR. Consulte la Licencia Publica
+ * General Affero de GNU (archivo LICENSE) para mas detalles.
+ *
+ * Codigo fuente: https://github.com/JPS63/NovoPDF
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
+#include <winver.h>
+1 ICON "novopdf.ico"
+VS_VERSION_INFO VERSIONINFO
+FILEVERSION 1,7,0,0
+PRODUCTVERSION 1,7,0,0
+FILEOS VOS_NT_WINDOWS32
+FILETYPE VFT_APP
+BEGIN
+  BLOCK "StringFileInfo"
+  BEGIN
+    BLOCK "0C0A04B0"
+    BEGIN
+      VALUE "FileDescription", "NovoPDF - Trabajar con documentos PDF"
+      VALUE "ProductName", "NovoPDF"
+      VALUE "FileVersion", "1.7.0"
+      VALUE "ProductVersion", "1.7.0"
+      VALUE "OriginalFilename", "NovoPDF.exe"
+      VALUE "InternalName", "NovoPDF"
+      VALUE "LegalCopyright", "Copyright \251 2026 Jes\372s Punz\363n Suero. GNU AGPL v3 o posterior."
+    END
+  END
+  BLOCK "VarFileInfo"
+  BEGIN
+    VALUE "Translation", 0x0C0A, 1200
+  END
+END

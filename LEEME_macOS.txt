@@ -1,0 +1,73 @@
+NovoPDF 1.7.0 para macOS
+=========================
+
+REQUISITOS
+  macOS 12 (Monterey) o posterior.
+  - NovoPDF_..._macOS_AppleSilicon.zip  -> Mac con chip Apple (M1, M2, M3, M4…)
+  - NovoPDF_..._macOS_Intel.zip         -> Mac con procesador Intel
+  (Menú Apple > Acerca de este Mac: «Chip Apple…» o «Procesador Intel…»)
+
+INSTALACIÓN
+  1. Descomprime el ZIP (doble clic). Aparecen «NovoPDF.app» e «Instalar NovoPDF.command».
+  2. Haz doble clic en «Instalar NovoPDF.command»: copia NovoPDF a Aplicaciones, le quita
+     la marca de «descargado de Internet» y lo abre.
+     - Si macOS no deja abrir el instalador: Ajustes del Sistema > Privacidad y seguridad >
+       baja hasta el aviso sobre «Instalar NovoPDF.command» > «Abrir igualmente».
+  Alternativa sin instalador: arrastra NovoPDF.app a Aplicaciones y, en el Terminal:
+       xattr -dr com.apple.quarantine /Applications/NovoPDF.app
+
+  ¿Por qué el aviso? La aplicación no está firmada con un certificado de desarrollador de
+  Apple. El equipo de informática puede firmarla y notarizarla con el script
+  «firmar_y_notarizar.sh» (incluido en el código fuente) para que se abra sin avisos.
+
+  La primera vez que abras o guardes en Documentos, Escritorio o Descargas, macOS pedirá
+  permiso a NovoPDF: pulsa «Permitir».
+
+ABRIR LOS PDF CON NOVOPDF
+  En la pantalla de inicio de NovoPDF pulsa «Abrir siempre los PDF con NovoPDF» para ver
+  los pasos: en el Finder, selecciona un PDF > Archivo > Obtener información > «Abrir con»:
+  NovoPDF > «Cambiar todo…».
+
+DIFERENCIAS CON LA VERSIÓN DE WINDOWS
+  - Firma digital: además de archivos .pfx/.p12, usa los certificados del Llavero de macOS
+    (también los de tarjetas como el DNIe si su software está instalado). macOS puede
+    preguntar si NovoPDF puede usar la clave: pulsa «Permitir» o «Permitir siempre».
+  - Escanear: macOS no tiene el sistema de escaneo de Windows. NovoPDF usa la aplicación
+    «Captura de Imagen» de Apple, que funciona con cualquier escáner compatible con el Mac:
+      1. En NovoPDF pulsa «Escanear» y luego «Abrir Captura de Imagen».
+      2. En Captura de Imagen elige el escáner y, en «Escanear a», la carpeta
+         «Documentos/Escaneos NovoPDF» (solo la primera vez). Formato: JPEG, PNG, TIFF o PDF.
+      3. Escanea las páginas: van apareciendo en NovoPDF. Pulsa «Crear PDF».
+     NovoPDF quita las páginas en blanco y reconoce el texto igual que en Windows.
+  - Atajos de teclado con ⌘ en lugar de Ctrl (⌘O abrir, ⌘S guardar, ⌘Z deshacer…).
+  - La configuración se guarda en ~/Library/Application Support/NovoPDF.
+
+  - Impresora NovoPDF: en Ayuda («?») > «Impresora NovoPDF» > «Activar». Después, en el cuadro
+    de impresión de cualquier programa, menú «PDF» (abajo a la izquierda) > «Abrir en NovoPDF».
+  - «Despertar la impresora» al imprimir es solo para Windows (en el Mac lo hace el sistema).
+
+NOVEDADES 1.7.0
+  - Comentarios (pestaña «Comentar»): notas, cuadros de texto y «Resaltar y comentar», con
+    respuestas y «Resuelto»; se ven en cualquier lector de PDF. Lista y exportación a Excel.
+  - Escaneados > «Optimizar»: endereza, gira las páginas de lado o al revés, papel blanco,
+    texto nítido y menos tamaño; después reconoce el texto.
+  - Formularios (de la 1.6.0): rellenar, crear, detectar campos, aplanar y exportar datos.
+
+FUNCIONES
+  Igual que en Windows: abrir, exportar a Word y a Excel, imprimir (⌘P; «Ajustes…» abre el cuadro de impresión de
+  macOS) y proteger con contraseña, gestionar páginas, editar texto (solo cambian las palabras modificadas;
+  el resto de la página no se mueve), resaltar, subrayar y tachar
+  (con la misma fuente del documento) e imágenes, exportar a imagen, firma digital PAdES
+  con sello visible, OCR en español e inglés, escaneo, formularios, comentarios y optimizar
+  escaneados.
+
+LICENCIA
+  NovoPDF - Copyright © 2026 Jesús Punzón Suero. Software libre bajo la GNU AGPL v3 o
+  posterior (archivo LICENSE), SIN NINGUNA GARANTÍA. Código fuente: https://github.com/JPS63/NovoPDF
+  (también en Ayuda «?» > «Acerca de NovoPDF»).
+
+LICENCIAS DE TERCEROS
+  PyMuPDF/MuPDF (AGPL-3.0, Artifex), Qt/PySide6 (LGPL-3.0), pyHanko (MIT), Pillow (MIT-CMU),
+  python-docx (MIT), openpyxl (MIT),
+  Tesseract y datos de idioma (Apache-2.0), Python (PSF). Lista completa en AVISOS_TERCEROS.txt;
+  textos de las licencias en la carpeta «licencias».
